@@ -45,10 +45,42 @@ struct RiveBatchListView: View {
     }
 
     func loadRiveFile() {
+
         do {
-            riveModel = try RiveModel(fileName: "testing")
+            riveModel = try RiveModel(
+                fileName: "testing",
+                loadCdn: false,
+                customLoader: { asset, data, factory in
+
+                    // Inject font
+                    if asset is RiveFontAsset {
+
+                        guard let url = Bundle.main.url(
+                            forResource: asset.uniqueName(),
+                            withExtension: asset.fileExtension()
+                        ) else {
+                            print("Font not found: \(asset.uniqueName())")
+                            return false
+                        }
+
+                        guard let fontData = try? Data(contentsOf: url) else {
+                            print("Failed to read font")
+                            return false
+                        }
+
+                        (asset as! RiveFontAsset).font(
+                            factory.decodeFont(fontData)
+                        )
+
+                        return true
+                    }
+
+                    return false
+                }
+            )
+
         } catch {
-            print("Failed loading Rive model:", error.localizedDescription)
+            print("Failed to load Rive model:", error)
         }
     }
 }
@@ -73,7 +105,9 @@ struct BatchedRivePanel: View {
             }
         }
         .onAppear {
-            setupRive()
+            if riveViewModel == nil {
+                setupRive()
+            }
         }
     }
 
@@ -81,12 +115,15 @@ struct BatchedRivePanel: View {
 
         let vm = RiveViewModel(
             riveModel,
-            animationName: "Press"
+            animationName: "Press",
+            autoPlay: false
         )
 
-
         do {
-            try vm.setTextRunValue("Button Text", path: "", textValue: "Testing")
+            try vm.setTextRunValue(
+                "Run 1",
+                textValue: "Testing"
+            )
         } catch {
             print("Failed to set text run:", error)
         }
