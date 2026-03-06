@@ -84,12 +84,31 @@ actual fun RiveComponent(
 
     val riveFile = riveFileResult.value
 
-    val vmi = rememberViewModelInstance(riveFile)
+    val vmi = rememberViewModelInstance(
+        file = riveFile,
+    )
 
     val controller = remember(vmi) { AndroidRiveController(vmi) }
 
-    SideEffect {
+    LaunchedEffect(riveFile) {
+        val vmNames = riveFile.getViewModelNames()
+        println("[RiveComponent] ViewModels: $vmNames")
+
+        vmNames.forEach { vmName ->
+            val props = riveFile.getViewModelProperties(vmName)
+            println("[RiveComponent] VM[$vmName] properties: $props")
+
+            val instances = riveFile.getViewModelInstanceNames(vmName)
+            println("[RiveComponent] VM[$vmName] instances: $instances")
+        }
+
+        val artboards = riveFile.getArtboardNames()
+        println("[RiveComponent] Artboards: $artboards")
+    }
+
+    LaunchedEffect(vmi, config) {
         controller.applyConfig(config)
+        println("@@@@@@@@@@ $config")
     }
 
     LaunchedEffect(controller) {

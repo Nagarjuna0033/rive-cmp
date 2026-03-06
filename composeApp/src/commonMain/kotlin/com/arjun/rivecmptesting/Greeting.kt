@@ -79,20 +79,3 @@ data class ContestItem(
     val isNew: Boolean = false,
 )
 
-
-// ─────────────────────────────────────────────────────────────────────
-// App entry — wrap once at root
-// shared/src/commonMain/kotlin/App.kt
-// ─────────────────────────────────────────────────────────────────────
-
-// @Composable
-// fun App() {
-//     RiveProvider(
-//         configs = RiveConfigs.allConfigs,
-//         loadingContent = { CircularProgressIndicator() },
-//         errorContent   = { msg -> Text("Rive error: $msg") }
-//     ) {
-//         // Your navigation / screens
-//         ContestScreen(contests = sampleContests)
-//     }
-// }
