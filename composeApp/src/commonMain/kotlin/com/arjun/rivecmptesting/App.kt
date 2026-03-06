@@ -108,7 +108,7 @@ fun App() {
 
 
 val sampleContests = listOf(
-    ContestItem("PvP", isCash = true),
+    ContestItem("Testing", isCash = true),
     ContestItem("Practice", isCoin = true),
     ContestItem("Locked", isLocked = true),
     ContestItem("New Mode", isNew = true)

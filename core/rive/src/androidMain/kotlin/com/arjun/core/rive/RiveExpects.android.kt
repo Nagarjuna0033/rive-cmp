@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,7 +88,7 @@ actual fun RiveComponent(
 
     val controller = remember(vmi) { AndroidRiveController(vmi) }
 
-    LaunchedEffect(config) {
+    SideEffect {
         controller.applyConfig(config)
     }
 

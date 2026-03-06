@@ -63,9 +63,9 @@ object RiveConfigs {
     // ── Preload everything at app start ────────────────────────────────
     val allConfigs = listOf(
         contestButton,
-        homeBanner,
-        prizeTrack,
-        chest,
+//        homeBanner,
+//        prizeTrack,
+//        chest,
     )
 }
 
