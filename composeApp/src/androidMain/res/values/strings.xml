@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">RiveCmpTesting</string>
+      <string name="title_rive">rive</string>
 </resources>
