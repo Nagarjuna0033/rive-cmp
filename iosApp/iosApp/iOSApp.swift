@@ -52,27 +52,59 @@ struct RiveBatchListView: View {
                 loadCdn: false,
                 customLoader: { asset, data, factory in
 
+                    print("[RiveLoader] Asset callback: type=\(type(of: asset)), name=\(asset.name()), uniqueName=\(asset.uniqueName()), ext=\(asset.fileExtension())")
+
                     // Inject font
-                    if asset is RiveFontAsset {
+                    if let fontAsset = asset as? RiveFontAsset {
 
-                        guard let url = Bundle.main.url(
-                            forResource: asset.uniqueName(),
-                            withExtension: asset.fileExtension()
-                        ) else {
-                            print("Font not found: \(asset.uniqueName())")
+                        // Try uniqueName first (e.g. "Outfit-4229794"), then fall back to name
+                        let candidates = [asset.uniqueName(), asset.name()]
+                        var fontData: Data?
+
+                        for candidate in candidates {
+                            if let url = Bundle.main.url(
+                                forResource: candidate,
+                                withExtension: asset.fileExtension()
+                            ) {
+                                fontData = try? Data(contentsOf: url)
+                                if fontData != nil {
+                                    print("[RiveLoader] Found font at: \(url.lastPathComponent)")
+                                    break
+                                }
+                            }
+                        }
+
+                        guard let bytes = fontData else {
+                            print("[RiveLoader] Font not found in bundle. Tried: \(candidates) with ext: \(asset.fileExtension())")
                             return false
                         }
 
-                        guard let fontData = try? Data(contentsOf: url) else {
-                            print("Failed to read font")
-                            return false
-                        }
-
-                        (asset as! RiveFontAsset).font(
-                            factory.decodeFont(fontData)
-                        )
-
+                        let decodedFont = factory.decodeFont(bytes)
+                        fontAsset.font(decodedFont)
+                        print("[RiveLoader] Font injected successfully: \(asset.uniqueName())")
                         return true
+                    }
+
+                    // Inject image
+                    if let imageAsset = asset as? RiveImageAsset {
+
+                        let candidates = [asset.uniqueName(), asset.name()]
+
+                        for candidate in candidates {
+                            if let url = Bundle.main.url(
+                                forResource: candidate,
+                                withExtension: asset.fileExtension()
+                            ),
+                               let imageData = try? Data(contentsOf: url) {
+                                let decodedImage = factory.decodeImage(imageData)
+                                imageAsset.renderImage(decodedImage)
+                                print("[RiveLoader] Image injected: \(asset.uniqueName())")
+                                return true
+                            }
+                        }
+
+                        print("[RiveLoader] Image not found: \(candidates) with ext: \(asset.fileExtension())")
+                        return false
                     }
 
                     return false
