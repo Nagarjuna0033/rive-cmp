@@ -1,7 +1,6 @@
 package com.arjun.core.rive
 
 import android.content.Context
-import androidx.compose.runtime.Composable
 import app.rive.RiveFile
 import app.rive.RiveFileSource
 import app.rive.Result
@@ -12,20 +11,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 class AndroidRiveFileManager(
     private val context: Context,
     val riveWorker: RiveWorker
 ) : RiveFileManager {
 
-    private val loadedFiles      = mutableMapOf<String, RiveFile>()
-    private val loadStates       = mutableMapOf<String, RiveLoadState>()
+    private val loadedFiles      = ConcurrentHashMap<String, RiveFile>()
+    private val loadStates       = ConcurrentHashMap<String, RiveLoadState>()
 
     // ── Asset caches — decoded ONCE, shared across all files ──────────
-    private val fontCache        = mutableMapOf<String, FontHandle>()
-    private val imageCache       = mutableMapOf<String, ImageHandle>()
-    private val registeredAssets = mutableSetOf<String>()
+    private val fontCache        = ConcurrentHashMap<String, FontHandle>()
+    private val imageCache       = ConcurrentHashMap<String, ImageHandle>()
+    private val registeredAssets = ConcurrentHashMap.newKeySet<String>()
+    private val assetMutex       = Mutex()
 
     // ── Preload single file ────────────────────────────────────────────
     override suspend fun preloadFile(config: RiveFileConfig): RiveLoadState {
@@ -80,36 +83,38 @@ class AndroidRiveFileManager(
 
     // ── Load + register asset only ONCE per assetId ───────────────────
     private suspend fun loadAndRegisterAsset(asset: RiveAssetConfig) {
-        if (registeredAssets.contains(asset.assetId)) {
-            println("[RiveFileManager] Skip already registered: ${asset.assetId}")
-            return
-        }
-
-        val bytes = loadRawBytes(asset.resourceName)
-
-        when (asset.type) {
-            RiveAssetType.FONT -> {
-                val font = fontCache.getOrPut(asset.assetId) {
-                    riveWorker.decodeFont(bytes).also {
-                        println("[RiveFileManager] Decoded font: ${asset.assetId} -> $it")
-                    }
-                }
-                riveWorker.registerFont(asset.assetId, font)
-                println("[RiveFileManager] Registered font: ${asset.assetId}")
+        assetMutex.withLock {
+            if (registeredAssets.contains(asset.assetId)) {
+                println("[RiveFileManager] Skip already registered: ${asset.assetId}")
+                return
             }
 
-            RiveAssetType.IMAGE -> {
-                val image = imageCache.getOrPut(asset.assetId) {
-                    riveWorker.decodeImage(bytes).also {
-                        println("[RiveFileManager] Decoded image: ${asset.assetId} -> $it")
-                    }
-                }
-                riveWorker.registerImage(asset.assetId, image)
-                println("[RiveFileManager] Registered image: ${asset.assetId}")
-            }
-        }
+            val bytes = loadRawBytes(asset.resourceName)
 
-        registeredAssets.add(asset.assetId)
+            when (asset.type) {
+                RiveAssetType.FONT -> {
+                    val font = fontCache.getOrPut(asset.assetId) {
+                        riveWorker.decodeFont(bytes).also {
+                            println("[RiveFileManager] Decoded font: ${asset.assetId} -> $it")
+                        }
+                    }
+                    riveWorker.registerFont(asset.assetId, font)
+                    println("[RiveFileManager] Registered font: ${asset.assetId}")
+                }
+
+                RiveAssetType.IMAGE -> {
+                    val image = imageCache.getOrPut(asset.assetId) {
+                        riveWorker.decodeImage(bytes).also {
+                            println("[RiveFileManager] Decoded image: ${asset.assetId} -> $it")
+                        }
+                    }
+                    riveWorker.registerImage(asset.assetId, image)
+                    println("[RiveFileManager] Registered image: ${asset.assetId}")
+                }
+            }
+
+            registeredAssets.add(asset.assetId)
+        }
     }
 
     // ── Build RiveFile from raw resource ──────────────────────────────
@@ -160,6 +165,8 @@ class AndroidRiveFileManager(
         loadStates[resourceName] ?: RiveLoadState.Idle
 
     override fun clearAll() {
+        fontCache.values.forEach { runCatching { it.release() } }
+        imageCache.values.forEach { runCatching { it.release() } }
         loadedFiles.clear()
         loadStates.clear()
         fontCache.clear()

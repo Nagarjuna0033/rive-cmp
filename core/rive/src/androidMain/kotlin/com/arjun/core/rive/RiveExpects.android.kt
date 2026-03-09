@@ -2,6 +2,7 @@ package com.arjun.core.rive
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,10 +74,11 @@ actual fun RiveComponent(
 
     LaunchedEffect(vmi, config) {
         controller.applyConfig(config)
+        onControllerReady?.invoke(controller)
     }
 
-    LaunchedEffect(controller) {
-        onControllerReady?.invoke(controller)
+    DisposableEffect(controller) {
+        onDispose { controller.destroy() }
     }
 
     Rive(
