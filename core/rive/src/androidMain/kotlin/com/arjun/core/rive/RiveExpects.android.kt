@@ -25,6 +25,7 @@ actual fun RiveProvider(
 
     val context = LocalContext.current
 
+    remember(context) { RiveCore.init(context) }
     val riveWorker = rememberRiveWorker()
 
     val fileManager = remember(riveWorker) {

@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
+import kotlinx.cinterop.ExperimentalForeignApi
 
 @Composable
 actual fun RiveProvider(
@@ -43,6 +44,7 @@ actual fun RiveProvider(
     }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun RiveComponent(
     resourceName: String,
