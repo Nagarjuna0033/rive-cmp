@@ -23,6 +23,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            export(projects.core.rive)
         }
     }
     
@@ -49,7 +50,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
-            implementation(projects.core.rive)
+            api(projects.core.rive)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
