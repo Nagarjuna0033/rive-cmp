@@ -1,8 +1,14 @@
 import SwiftUI
 import RiveRuntime
+import ComposeApp
 
 @main
 struct iOSApp: App {
+
+    init() {
+        IOSRivePlatform.shared.bridge = SwiftRiveBridge()
+    }
+
     var body: some Scene {
         WindowGroup {
             RiveBatchListView()
