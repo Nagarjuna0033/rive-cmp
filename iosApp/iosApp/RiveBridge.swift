@@ -11,6 +11,8 @@ class SwiftRiveHandle: IOSRiveHandle {
     private let riveModel: RiveModel
     private let riveViewModel: RiveViewModel
     private var hostingController: UIHostingController<AnyView>?
+    private var isViewReady = false
+    private var pendingOperations: [() -> Void] = []
 
     init(riveModel: RiveModel) {
         self.riveModel = riveModel
@@ -26,48 +28,102 @@ class SwiftRiveHandle: IOSRiveHandle {
         let hosting = UIHostingController(rootView: AnyView(swiftUIView))
         hosting.view.backgroundColor = .clear
         hostingController = hosting
+
+        // Flush pending operations once the view is in the hierarchy
+        DispatchQueue.main.async { [weak self] in
+            self?.markReady()
+        }
+
         return hosting.view
     }
 
+    private func markReady() {
+        guard !isViewReady else { return }
+        isViewReady = true
+        print("[SwiftRiveHandle] View ready, flushing \(pendingOperations.count) pending operations")
+        for op in pendingOperations {
+            op()
+        }
+        pendingOperations.removeAll()
+    }
+
+    private func executeOrBuffer(_ operation: @escaping () -> Void) {
+        if isViewReady {
+            operation()
+        } else {
+            pendingOperations.append(operation)
+        }
+    }
+
     override func setStringProperty(name: String, value: String) {
-        // Try data binding VMI first, fall back to text runs
-        if let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance {
-            if let prop = vmi.stringProperty(fromPath: name) {
-                prop.value = value
-                return
+        executeOrBuffer { [self] in
+            if let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance {
+                if let prop = vmi.stringProperty(fromPath: name) {
+                    prop.value = value
+                    print("[SwiftRiveHandle] String set via VMI: \(name) = \(value)")
+                    return
+                }
+            }
+            do {
+                try riveViewModel.setTextRunValue(name, textValue: value)
+                print("[SwiftRiveHandle] String set via text run: \(name) = \(value)")
+            } catch {
+                print("[SwiftRiveHandle] Failed to set string \(name): \(error)")
             }
         }
-        try? riveViewModel.setTextRunValue(name, textValue: value)
     }
 
     override func setEnumProperty(name: String, value: String) {
-        guard let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
-              let prop = vmi.enumProperty(fromPath: name) else { return }
-        prop.value = value
+        executeOrBuffer { [self] in
+            guard let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
+                  let prop = vmi.enumProperty(fromPath: name) else {
+                print("[SwiftRiveHandle] Enum property not found: \(name)")
+                return
+            }
+            prop.value = value
+            print("[SwiftRiveHandle] Enum set: \(name) = \(value)")
+        }
     }
 
     override func setBooleanProperty(name: String, value: Bool) {
-        guard let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
-              let prop = vmi.booleanProperty(fromPath: name) else { return }
-        prop.value = value
+        executeOrBuffer { [self] in
+            guard let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
+                  let prop = vmi.booleanProperty(fromPath: name) else {
+                print("[SwiftRiveHandle] Boolean property not found: \(name)")
+                return
+            }
+            prop.value = value
+            print("[SwiftRiveHandle] Boolean set: \(name) = \(value)")
+        }
     }
 
     override func setNumberProperty(name: String, value: Float) {
-        guard let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
-              let prop = vmi.numberProperty(fromPath: name) else { return }
-        prop.value = value
+        executeOrBuffer { [self] in
+            guard let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
+                  let prop = vmi.numberProperty(fromPath: name) else {
+                print("[SwiftRiveHandle] Number property not found: \(name)")
+                return
+            }
+            prop.value = value
+            print("[SwiftRiveHandle] Number set: \(name) = \(value)")
+        }
     }
 
     override func fireTrigger(name: String) {
-        if let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
-           let prop = vmi.triggerProperty(fromPath: name) {
-            prop.trigger()
-            return
+        executeOrBuffer { [self] in
+            if let vmi = riveViewModel.riveModel?.stateMachine?.viewModelInstance,
+               let prop = vmi.triggerProperty(fromPath: name) {
+                prop.trigger()
+                print("[SwiftRiveHandle] Trigger fired via VMI: \(name)")
+                return
+            }
+            riveViewModel.triggerInput(name)
+            print("[SwiftRiveHandle] Trigger fired via input: \(name)")
         }
-        riveViewModel.triggerInput(name)
     }
 
     override func destroy() {
+        pendingOperations.removeAll()
         hostingController = nil
     }
 }
