@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 
 class AndroidRiveFileManager(
     private val context: Context,
-    private val riveWorker: RiveWorker
+    val riveWorker: RiveWorker
 ) : RiveFileManager {
 
     private val loadedFiles      = mutableMapOf<String, RiveFile>()

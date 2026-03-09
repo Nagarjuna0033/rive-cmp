@@ -1,11 +1,8 @@
 package com.arjun.core.rive
 
-import android.annotation.SuppressLint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,14 +10,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.rive.Rive
-import app.rive.RiveFileSource
-import app.rive.rememberRiveFile
 import app.rive.rememberRiveWorker
 import app.rive.rememberViewModelInstance
 import app.rive.runtime.kotlin.core.Rive as RiveCore
-import app.rive.Result
 
-@SuppressLint("RememberReturnType")
 @Composable
 actual fun RiveProvider(
     configs: List<RiveFileConfig>,
@@ -30,7 +23,6 @@ actual fun RiveProvider(
 ) {
 
     val context = LocalContext.current
-    remember(context) { RiveCore.init(context) }
 
     val riveWorker = rememberRiveWorker()
 
@@ -67,22 +59,11 @@ actual fun RiveComponent(
     onControllerReady: ((RiveController) -> Unit)?
 ) {
 
-    val riveWorker = rememberRiveWorker()
+    val fileManager = LocalRiveFileManager.current as? AndroidRiveFileManager
 
-    val context = LocalContext.current
-
-    val resId = remember(resourceName) {
-        context.resources.getIdentifier(resourceName, "raw", context.packageName)
-    }
-
-    val riveFileResult = rememberRiveFile(
-        source = RiveFileSource.RawRes.from(resId),
-        riveWorker = riveWorker
-    )
-
-    if (riveFileResult !is Result.Success) return
-
-    val riveFile = riveFileResult.value
+    val riveFile = remember(resourceName, fileManager) {
+        fileManager?.getFile(resourceName)
+    } ?: return
 
     val vmi = rememberViewModelInstance(
         file = riveFile,
@@ -90,25 +71,8 @@ actual fun RiveComponent(
 
     val controller = remember(vmi) { AndroidRiveController(vmi) }
 
-    LaunchedEffect(riveFile) {
-        val vmNames = riveFile.getViewModelNames()
-        println("[RiveComponent] ViewModels: $vmNames")
-
-        vmNames.forEach { vmName ->
-            val props = riveFile.getViewModelProperties(vmName)
-            println("[RiveComponent] VM[$vmName] properties: $props")
-
-            val instances = riveFile.getViewModelInstanceNames(vmName)
-            println("[RiveComponent] VM[$vmName] instances: $instances")
-        }
-
-        val artboards = riveFile.getArtboardNames()
-        println("[RiveComponent] Artboards: $artboards")
-    }
-
     LaunchedEffect(vmi, config) {
         controller.applyConfig(config)
-        println("@@@@@@@@@@ $config")
     }
 
     LaunchedEffect(controller) {
