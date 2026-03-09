@@ -12,45 +12,28 @@ class SwiftRiveHandle: IOSRiveHandle {
     private let riveViewModel: RiveViewModel
     private var hostingController: UIHostingController<AnyView>?
     private var pendingOperations: [() -> Void] = []
-    private var isFlushScheduled = false
-    private var storedVMI: RiveDataBindingViewModel.Instance?
+    private var boundVMI: RiveDataBindingViewModel.Instance?
 
     init(riveModel: RiveModel) {
         self.riveModel = riveModel
         self.riveViewModel = RiveViewModel(riveModel, autoPlay: true)
         super.init()
 
-        // Try to create VMI directly from the RiveFile
-        tryCreateVMI()
-    }
-
-    private func tryCreateVMI() {
-        // Diagnostic: check what's available on the model
-        let hasStateMachine = riveModel.stateMachine != nil
-        let hasArtboard = riveModel.artboard != nil
-        print("[SwiftRiveHandle] init diagnostic - stateMachine: \(hasStateMachine), artboard: \(hasArtboard)")
-
-        // Approach 1: Try getting VMI from artboard's default view model
-        if let artboard = riveModel.artboard {
-            if let defaultVM = riveModel.riveFile.defaultViewModel(for: artboard) {
-                if let instance = defaultVM.createDefaultInstance() {
-                    storedVMI = instance
-                    print("[SwiftRiveHandle] VMI created from file's defaultViewModel")
-                    return
-                }
+        // Use enableAutoBind to get a VMI that's connected to the rendering pipeline
+        riveModel.enableAutoBind { [weak self] instance in
+            guard let self else { return }
+            self.boundVMI = instance
+            print("[SwiftRiveHandle] AutoBind VMI received, \(instance.propertyCount) properties:")
+            for prop in instance.properties {
+                print("[SwiftRiveHandle]   - \"\(prop.name)\" (type: \(prop.type.rawValue))")
             }
-            // Approach 2: Try first available view model on the file
-            let vmCount = riveModel.riveFile.viewModelCount
-            print("[SwiftRiveHandle] File has \(vmCount) view model(s)")
-            if vmCount > 0, let vm = riveModel.riveFile.viewModel(at: 0) {
-                if let instance = vm.createDefaultInstance() {
-                    storedVMI = instance
-                    print("[SwiftRiveHandle] VMI created from viewModel(at: 0)")
-                    return
-                }
+            // Flush any buffered operations
+            if !self.pendingOperations.isEmpty {
+                print("[SwiftRiveHandle] Flushing \(self.pendingOperations.count) pending operations")
+                for op in self.pendingOperations { op() }
+                self.pendingOperations.removeAll()
             }
         }
-        print("[SwiftRiveHandle] Could not create VMI from file")
     }
 
     override func getUIView() -> UIView {
@@ -66,106 +49,81 @@ class SwiftRiveHandle: IOSRiveHandle {
 
     // MARK: - VMI access
 
-    private var vmi: RiveDataBindingViewModel.Instance? {
-        // Prefer stored VMI (created from file), fall back to state machine VMI
-        storedVMI ?? riveViewModel.riveModel?.stateMachine?.viewModelInstance
-    }
-
     private func executeWithVMI(_ operation: @escaping () -> Void) {
-        if vmi != nil {
+        if boundVMI != nil {
             operation()
         } else {
             pendingOperations.append(operation)
-            scheduleFlush()
-        }
-    }
-
-    private func scheduleFlush() {
-        guard !isFlushScheduled else { return }
-        isFlushScheduled = true
-        pollForVMI(attemptsLeft: 30) // 30 × 100ms = 3s max
-    }
-
-    private func pollForVMI(attemptsLeft: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self, !self.pendingOperations.isEmpty else {
-                self?.isFlushScheduled = false
-                return
-            }
-            // Re-try creating VMI if we don't have one yet
-            if self.storedVMI == nil {
-                self.tryCreateVMI()
-            }
-            if self.vmi != nil {
-                print("[SwiftRiveHandle] VMI ready, flushing \(self.pendingOperations.count) pending operations")
-                for op in self.pendingOperations { op() }
-                self.pendingOperations.removeAll()
-                self.isFlushScheduled = false
-            } else if attemptsLeft > 0 {
-                self.pollForVMI(attemptsLeft: attemptsLeft - 1)
-            } else {
-                print("[SwiftRiveHandle] VMI never became available, dropping \(self.pendingOperations.count) operations")
-                self.pendingOperations.removeAll()
-                self.isFlushScheduled = false
-            }
         }
     }
 
     // MARK: - Property setters
 
     override func setStringProperty(name: String, value: String) {
-        executeWithVMI { [self] in
-            if let vmi = vmi, let prop = vmi.stringProperty(fromPath: name) {
+        executeWithVMI { [weak self] in
+            guard let self, let vmi = self.boundVMI else { return }
+            if let prop = vmi.stringProperty(fromPath: name) {
                 prop.value = value
-                print("[SwiftRiveHandle] String set via VMI: \(name) = \(value)")
-                return
-            }
-            do {
-                try riveViewModel.setTextRunValue(name, textValue: value)
-                print("[SwiftRiveHandle] String set via text run: \(name) = \(value)")
-            } catch {
-                print("[SwiftRiveHandle] Failed to set string \(name): \(error)")
+                print("[SwiftRiveHandle] String set: \(name) = \(value)")
+            } else {
+                // Fallback to text run API
+                do {
+                    try self.riveViewModel.setTextRunValue(name, textValue: value)
+                    print("[SwiftRiveHandle] String set via text run: \(name) = \(value)")
+                } catch {
+                    print("[SwiftRiveHandle] String property not found: \(name)")
+                }
             }
         }
     }
 
     override func setEnumProperty(name: String, value: String) {
-        executeWithVMI { [self] in
-            guard let vmi = vmi, let prop = vmi.enumProperty(fromPath: name) else {
+        executeWithVMI { [weak self] in
+            guard let self, let vmi = self.boundVMI else { return }
+            if let prop = vmi.enumProperty(fromPath: name) {
+                prop.value = value
+                print("[SwiftRiveHandle] Enum set: \(name) = \(value)")
+            } else {
                 print("[SwiftRiveHandle] Enum property not found: \(name)")
-                return
             }
-            prop.value = value
-            print("[SwiftRiveHandle] Enum set: \(name) = \(value)")
         }
     }
 
     override func setBooleanProperty(name: String, value: Bool) {
-        executeWithVMI { [self] in
-            guard let vmi = vmi, let prop = vmi.booleanProperty(fromPath: name) else {
+        executeWithVMI { [weak self] in
+            guard let self, let vmi = self.boundVMI else { return }
+            if let prop = vmi.booleanProperty(fromPath: name) {
+                prop.value = value
+                print("[SwiftRiveHandle] Boolean set: \(name) = \(value)")
+            } else {
                 print("[SwiftRiveHandle] Boolean property not found: \(name)")
-                return
             }
-            prop.value = value
-            print("[SwiftRiveHandle] Boolean set: \(name) = \(value)")
         }
     }
 
     override func setNumberProperty(name: String, value: Float) {
-        executeWithVMI { [self] in
-            guard let vmi = vmi, let prop = vmi.numberProperty(fromPath: name) else {
+        executeWithVMI { [weak self] in
+            guard let self, let vmi = self.boundVMI else { return }
+            if let prop = vmi.numberProperty(fromPath: name) {
+                prop.value = value
+                print("[SwiftRiveHandle] Number set: \(name) = \(value)")
+            } else {
                 print("[SwiftRiveHandle] Number property not found: \(name)")
-                return
             }
-            prop.value = value
-            print("[SwiftRiveHandle] Number set: \(name) = \(value)")
         }
     }
 
     override func fireTrigger(name: String) {
-        if let vmi = vmi, let prop = vmi.triggerProperty(fromPath: name) {
+        if let vmi = boundVMI, let prop = vmi.triggerProperty(fromPath: name) {
             prop.trigger()
-            print("[SwiftRiveHandle] Trigger fired via VMI: \(name)")
+            print("[SwiftRiveHandle] Trigger fired: \(name)")
+            return
+        }
+        // Buffer if VMI not ready yet
+        if boundVMI == nil {
+            pendingOperations.append { [weak self] in
+                self?.fireTrigger(name: name)
+            }
             return
         }
         riveViewModel.triggerInput(name)
@@ -174,7 +132,8 @@ class SwiftRiveHandle: IOSRiveHandle {
 
     override func destroy() {
         pendingOperations.removeAll()
-        storedVMI = nil
+        riveModel.disableAutoBind()
+        boundVMI = nil
         hostingController = nil
     }
 }
