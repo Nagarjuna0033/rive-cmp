@@ -142,22 +142,25 @@ class SwiftRiveHandle: IOSRiveHandle {
 
 class SwiftRiveBridge: NSObject, IOSRiveBridge {
 
-    private var loadedModels: [String: RiveModel] = [:]
+    // Store asset configs instead of shared RiveModel instances.
+    // Each createHandle() call creates a fresh RiveModel so each
+    // handle gets its own independent enableAutoBind VMI.
+    private var loadedConfigs: [String: [String: RiveAssetConfig]] = [:]
 
     func preloadFiles(configs: [RiveFileConfig]) -> Bool {
         for config in configs {
-            if loadedModels[config.resourceName] != nil {
+            if loadedConfigs[config.resourceName] != nil {
                 continue
             }
 
-            // Build asset lookup: uniqueName/assetId -> resourceName
             var assetMap: [String: RiveAssetConfig] = [:]
             for asset in config.assets {
                 assetMap[asset.assetId] = asset
             }
 
+            // Validate the file can be loaded
             do {
-                let model = try RiveModel(
+                let _ = try RiveModel(
                     fileName: config.resourceName,
                     loadCdn: false,
                     customLoader: { [assetMap] asset, data, factory in
@@ -169,8 +172,8 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                         )
                     }
                 )
-                loadedModels[config.resourceName] = model
-                print("[SwiftRiveBridge] Loaded: \(config.resourceName)")
+                loadedConfigs[config.resourceName] = assetMap
+                print("[SwiftRiveBridge] Validated: \(config.resourceName)")
             } catch {
                 print("[SwiftRiveBridge] Failed to load \(config.resourceName): \(error)")
                 return false
@@ -180,19 +183,36 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
     }
 
     func createHandle(resourceName: String) -> IOSRiveHandle? {
-        guard let model = loadedModels[resourceName] else {
-            print("[SwiftRiveBridge] No preloaded model for: \(resourceName)")
+        guard let assetMap = loadedConfigs[resourceName] else {
+            print("[SwiftRiveBridge] No config for: \(resourceName)")
             return nil
         }
-        return SwiftRiveHandle(riveModel: model)
+        do {
+            let model = try RiveModel(
+                fileName: resourceName,
+                loadCdn: false,
+                customLoader: { [assetMap] asset, data, factory in
+                    return Self.loadAsset(
+                        asset: asset,
+                        data: data,
+                        factory: factory,
+                        assetMap: assetMap
+                    )
+                }
+            )
+            return SwiftRiveHandle(riveModel: model)
+        } catch {
+            print("[SwiftRiveBridge] Failed to create model for \(resourceName): \(error)")
+            return nil
+        }
     }
 
     func isFileLoaded(resourceName: String) -> Bool {
-        return loadedModels[resourceName] != nil
+        return loadedConfigs[resourceName] != nil
     }
 
     func clearAll() {
-        loadedModels.removeAll()
+        loadedConfigs.removeAll()
     }
 
     // MARK: - Asset Loading
