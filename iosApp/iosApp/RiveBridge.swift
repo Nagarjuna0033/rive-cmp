@@ -216,6 +216,9 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
     }
 
     // MARK: - Asset Loading
+    //
+    // Matches Android behavior: use ONLY the resourceName from config mapping.
+    // No fallback to asset ID filenames — fail loudly if the resource is missing.
 
     private static func loadAsset(
         asset: RiveFileAsset,
@@ -228,67 +231,40 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
         let assetName = asset.name()
 
         // Find matching config by uniqueName (assetId)
-        let config = assetMap[uniqueName] ?? assetMap[assetName]
-
-        // Determine resource name: from config mapping, or try uniqueName/name
-        let candidates: [String]
-        if let config = config {
-            candidates = [config.resourceName, uniqueName, assetName]
-        } else {
-            candidates = [uniqueName, assetName]
+        guard let config = assetMap[uniqueName] ?? assetMap[assetName] else {
+            print("[SwiftRiveBridge] No config mapping for asset: \(uniqueName) (\(assetName))")
+            return false
         }
 
-        let ext = asset.fileExtension()
+        let resourceName = config.resourceName
 
         if let fontAsset = asset as? RiveFontAsset {
-            for candidate in candidates {
-                if let url = Bundle.main.url(forResource: candidate, withExtension: ext),
+            // Try file extension from Rive, then common font extensions
+            for ext in [asset.fileExtension(), "ttf", "otf"] {
+                if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
                    let fontData = try? Data(contentsOf: url) {
                     let decodedFont = factory.decodeFont(fontData)
                     fontAsset.font(decodedFont)
-                    print("[SwiftRiveBridge] Font injected: \(uniqueName) from \(candidate).\(ext)")
+                    print("[SwiftRiveBridge] Font injected: \(uniqueName) from \(resourceName).\(ext)")
                     return true
                 }
             }
-            // Try common font extensions
-            for candidate in candidates {
-                for tryExt in ["ttf", "otf"] {
-                    if let url = Bundle.main.url(forResource: candidate, withExtension: tryExt),
-                       let fontData = try? Data(contentsOf: url) {
-                        let decodedFont = factory.decodeFont(fontData)
-                        fontAsset.font(decodedFont)
-                        print("[SwiftRiveBridge] Font injected: \(uniqueName) from \(candidate).\(tryExt)")
-                        return true
-                    }
-                }
-            }
-            print("[SwiftRiveBridge] Font not found: \(uniqueName), tried: \(candidates)")
+            print("[SwiftRiveBridge] Font not found: \(uniqueName), resource: \(resourceName)")
             return false
         }
 
         if let imageAsset = asset as? RiveImageAsset {
-            for candidate in candidates {
-                if let url = Bundle.main.url(forResource: candidate, withExtension: ext),
+            // Try file extension from Rive, then common image extensions
+            for ext in [asset.fileExtension(), "webp", "png", "jpg", "jpeg"] {
+                if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
                    let imageData = try? Data(contentsOf: url) {
                     let decoded = factory.decodeImage(imageData)
                     imageAsset.renderImage(decoded)
-                    print("[SwiftRiveBridge] Image injected: \(uniqueName) from \(candidate).\(ext)")
+                    print("[SwiftRiveBridge] Image injected: \(uniqueName) from \(resourceName).\(ext)")
                     return true
                 }
             }
-            // Try common image extensions
-            for candidate in candidates {
-                for tryExt in ["webp", "png", "jpg", "jpeg"] {
-                    if let url = Bundle.main.url(forResource: candidate, withExtension: tryExt),
-                       let imageData = try? Data(contentsOf: url) {
-                        let decoded = factory.decodeImage(imageData)
-                        imageAsset.renderImage(decoded)
-                        print("[SwiftRiveBridge] Image injected: \(uniqueName) from \(candidate).\(tryExt)")
-                        return true
-                    }
-                }
-            }
-            print("[SwiftRiveBridge] Image not found: \(uniqueName), tried: \(candidates)")
+            print("[SwiftRiveBridge] Image not found: \(uniqueName), resource: \(resourceName)")
             return false
         }
 
