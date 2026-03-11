@@ -135,7 +135,7 @@ class SwiftRiveHandle: IOSRiveHandle {
         executeWithVMI { [weak self] in
             guard let self, let vmi = self.boundVMI else { return }
             if let prop = vmi.triggerProperty(fromPath: name) {
-                let listenerId = prop.addListener { _ in
+                let listenerId = prop.addListener {
                     callback()
                 }
                 self.triggerListenerIds.append(listenerId)
