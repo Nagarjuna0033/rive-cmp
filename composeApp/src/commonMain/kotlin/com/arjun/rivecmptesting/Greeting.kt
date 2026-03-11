@@ -72,61 +72,6 @@ val ColorSurfaceLow = ColorGrayGray50
 val ColorTextSecondary = ColorGrayGray600
 
 
-
-
-@Composable
-fun ContestScreen(contests: List<ContestItem>) {
-    var contests by remember { mutableStateOf(contests) }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-        Button(
-            onClick = {
-                // Example: toggle lock state of first contest
-                contests = contests.mapIndexed { index, item ->
-                    if (index == 2) {
-                        item.copy(isLocked = !item.isLocked, name = if(item.isLocked) "Locked" else "Not Locked")
-                    } else item
-                }
-            }
-        ) {
-            Text("Toggle Lock of First Contest")
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-
-            items(
-                items = contests,
-                key = { it.id }
-            ) { contest ->
-
-                ContestCard(contest)
-
-            }
-        }
-    }
-}
-
-@Composable fun ContestCard(contest: ContestItem) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp) ) {
-        Column( modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ){
-            Text( text = contest.name, style = MaterialTheme.typography.titleMedium )
-            PrimaryButton(contest = contest)
-        }
-    }
-}
-
-
 @Composable
 fun PrimaryButton(contest: ContestItem) {
     var controller by remember { mutableStateOf<RiveController?>(null) }
