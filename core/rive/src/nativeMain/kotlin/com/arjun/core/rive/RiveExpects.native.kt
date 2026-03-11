@@ -63,10 +63,30 @@ actual fun RiveComponent(
 
     LaunchedEffect(handle, config) {
         controller.applyConfig(config)
+        onControllerReady?.invoke(controller)
+        // Listen for trigger events — matches Android's vmi.getTriggerFlow()
+        config.triggers.forEach { trigger ->
+            handle.addTriggerListener(trigger) {
+                eventCallback?.onTriggerAnimation(trigger)
+            }
+        }
     }
 
-    LaunchedEffect(controller) {
-        onControllerReady?.invoke(controller)
+    // Separate LaunchedEffects per property type — matches Android pattern
+    LaunchedEffect(config.strings) {
+        config.strings.forEach { (k, v) -> controller.setString(k, v) }
+    }
+
+    LaunchedEffect(config.enums) {
+        config.enums.forEach { (k, v) -> controller.setEnum(k, v) }
+    }
+
+    LaunchedEffect(config.booleans) {
+        config.booleans.forEach { (k, v) -> controller.setBoolean(k, v) }
+    }
+
+    LaunchedEffect(config.numbers) {
+        config.numbers.forEach { (k, v) -> controller.setNumber(k, v) }
     }
 
     DisposableEffect(handle) {

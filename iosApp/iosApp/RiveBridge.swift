@@ -13,6 +13,7 @@ class SwiftRiveHandle: IOSRiveHandle {
     private var hostingController: UIHostingController<AnyView>?
     private var pendingOperations: [() -> Void] = []
     private var boundVMI: RiveDataBindingViewModel.Instance?
+    private var triggerListenerIds: [UUID] = []
 
     init(riveModel: RiveModel) {
         self.riveModel = riveModel
@@ -130,8 +131,24 @@ class SwiftRiveHandle: IOSRiveHandle {
         print("[SwiftRiveHandle] Trigger fired via input: \(name)")
     }
 
+    override func addTriggerListener(name: String, callback: @escaping () -> Void) {
+        executeWithVMI { [weak self] in
+            guard let self, let vmi = self.boundVMI else { return }
+            if let prop = vmi.triggerProperty(fromPath: name) {
+                let listenerId = prop.addListener { _ in
+                    callback()
+                }
+                self.triggerListenerIds.append(listenerId)
+                print("[SwiftRiveHandle] Trigger listener added: \(name)")
+            } else {
+                print("[SwiftRiveHandle] Trigger property not found for listener: \(name)")
+            }
+        }
+    }
+
     override func destroy() {
         pendingOperations.removeAll()
+        triggerListenerIds.removeAll()
         riveModel.disableAutoBind()
         boundVMI = nil
         hostingController = nil

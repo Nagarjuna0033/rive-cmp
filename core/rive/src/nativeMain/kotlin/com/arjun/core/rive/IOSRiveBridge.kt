@@ -10,6 +10,7 @@ open class IOSRiveHandle {
     open fun setBooleanProperty(name: String, value: Boolean) {}
     open fun setNumberProperty(name: String, value: Float) {}
     open fun fireTrigger(name: String) {}
+    open fun addTriggerListener(name: String, callback: () -> Unit) {}
     open fun destroy() {}
 }
 
