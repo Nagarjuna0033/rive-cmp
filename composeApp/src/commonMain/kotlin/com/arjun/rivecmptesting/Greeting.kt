@@ -66,6 +66,12 @@ fun ContestButton(contest: ContestItem) {
             override fun onRiveEventReceived(event: RiveEvent) {
                 println("Rive event: ${event.name}")
             }
+
+            override fun onTriggerAnimation(animationName: String) {
+                println("animationName = [${animationName}]")
+            }
+
+
         },
         onControllerReady = { controller = it }
     )

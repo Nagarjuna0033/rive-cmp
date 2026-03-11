@@ -165,8 +165,8 @@ class AndroidRiveFileManager(
         loadStates[resourceName] ?: RiveLoadState.Idle
 
     override fun clearAll() {
-        fontCache.values.forEach { runCatching { it.release() } }
-        imageCache.values.forEach { runCatching { it.release() } }
+//        fontCache.values.forEach { runCatching { it.release() } }
+//        imageCache.values.forEach { runCatching { it.release() } }
         loadedFiles.clear()
         loadStates.clear()
         fontCache.clear()

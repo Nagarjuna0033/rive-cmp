@@ -86,7 +86,10 @@ object RiveItemConfigs {
             put("Right Coin",      if (showCoin) "Show" else "Hide")
             put("Show Lock Icon",  if (showLock) "Show" else "Hide")
             put("New Tag",         if (isNew)    "Show" else "Hide")
-        }
+        },
+        triggers = listOf(
+            "Press",
+        )
     )
 
     // Presets
