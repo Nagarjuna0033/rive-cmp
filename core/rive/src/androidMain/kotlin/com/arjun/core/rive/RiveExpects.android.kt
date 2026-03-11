@@ -90,6 +90,30 @@ actual fun RiveComponent(
         }
     }
 
+    LaunchedEffect(config.booleans) {
+        config.booleans.forEach { (k, v) ->
+            controller.setBoolean(k, v)
+        }
+    }
+
+    LaunchedEffect(config.strings) {
+        config.strings.forEach { (k, v) ->
+            controller.setString(k, v)
+        }
+    }
+
+    LaunchedEffect(config.enums) {
+        config.enums.forEach { (k, v) ->
+            controller.setEnum(k, v)
+        }
+    }
+
+    LaunchedEffect(config.numbers) {
+        config.numbers.forEach { (k, v) ->
+            controller.setNumber(k, v)
+        }
+    }
+
     DisposableEffect(controller) {
         onDispose { controller.destroy() }
     }
