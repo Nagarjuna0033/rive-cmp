@@ -76,32 +76,35 @@ val ColorTextSecondary = ColorGrayGray600
 fun PrimaryButton(contest: ContestItem) {
     var controller by remember { mutableStateOf<RiveController?>(null) }
 
-    RiveComponent(
-        resourceName = RiveConfigs.Files.CONTEST_BUTTON,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp)
-            .clickable { controller?.fireTrigger("Press") },
-        config = RiveItemConfigs.contestButton(
-            buttonText = contest.name,
-            showCash   = contest.isCash,
-            showCoin   = contest.isCoin,
-            showLock   = contest.isLocked,
-            isNew      = contest.isNew,
-        ),
-        eventCallback = object : RiveEventCallback {
-            override fun onRiveEventReceived(event: RiveEvent) {
-                println("Rive event: ${event.name}")
-            }
+            .background(Color.Red)
+//            .padding(15.dp)
+//            .height(90.dp)
+    ) {
 
-            override fun onTriggerAnimation(animationName: String) {
-                println("animationName = [${animationName}]")
-            }
-
-
-        },
-        onControllerReady = { controller = it }
-    )
+        RiveComponent(
+            resourceName = RiveConfigs.Files.CONTEST_BUTTON,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Red)
+                .clickable { controller?.fireTrigger("Press") },
+            config = RiveItemConfigs.contestButton(
+                buttonText = contest.name,
+                showCash = contest.isCash,
+                showCoin = contest.isCoin,
+                showLock = contest.isLocked,
+                isNew = contest.isNew,
+            ),
+            eventCallback = object : RiveEventCallback {
+                override fun onTriggerAnimation(animationName: String) {
+                    println("animationName = [$animationName]")
+                }
+            },
+            onControllerReady = { controller = it }
+        )
+    }
 }
 
 data class ContestServerModel(

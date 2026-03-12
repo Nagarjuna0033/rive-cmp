@@ -5,7 +5,7 @@ object RiveConfigs {
 
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
-        const val CONTEST_BUTTON    = "testing.riv"
+        const val CONTEST_BUTTON    = "primary_button.riv"
         const val HOME_BANNER       = "home_banner"
         const val PRIZE_TRACK       = "prize_track"
         const val CHEST             = "chest"
@@ -14,9 +14,9 @@ object RiveConfigs {
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
     object AssetIds {
         const val FONT_OUTFIT       = "Outfit-4229794"
-        const val IMAGE_COIN        = "1-5293216"
-        const val IMAGE_CASH        = "2-5293204"
-        const val IMAGE_GEM         = "3-5293203"
+        const val IMAGE_COIN        = "coinIcon-5293203"
+        const val IMAGE_CASH        = "cashIcon-5293204"
+        const val IMAGE_LOCK        = "lockIcon-5293216"
     }
 
     // ── Raw resource names (without extension) ─────────────────────────
@@ -24,7 +24,7 @@ object RiveConfigs {
         const val FONT_RAJDHANI = "outfit.ttf"
         const val IMAGE_IC_COIN     = "coin.webp"
         const val IMAGE_IC_CASH     = "cash.webp"
-        const val IMAGE_IC_GEM      = "lock.webp"
+        const val IMAGE_IC_LOCK      = "lock.webp"
     }
 
     // ── Per-file configs ───────────────────────────────────────────────
@@ -34,7 +34,7 @@ object RiveConfigs {
             RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_RAJDHANI, RiveAssetType.FONT),
             RiveAssetConfig(AssetIds.IMAGE_COIN,    ResourceNames.IMAGE_IC_COIN, RiveAssetType.IMAGE),
             RiveAssetConfig(AssetIds.IMAGE_CASH,    ResourceNames.IMAGE_IC_CASH, RiveAssetType.IMAGE),
-            RiveAssetConfig(AssetIds.IMAGE_GEM,     ResourceNames.IMAGE_IC_GEM,  RiveAssetType.IMAGE),
+            RiveAssetConfig(AssetIds.IMAGE_LOCK,     ResourceNames.IMAGE_IC_LOCK,  RiveAssetType.IMAGE),
         )
     )
 
@@ -86,6 +86,9 @@ object RiveItemConfigs {
             put("Right Coin",      if (showCoin) "Show" else "Hide")
             put("Show Lock Icon",  if (showLock) "Show" else "Hide")
             put("New Tag",         if (isNew)    "Show" else "Hide")
+        },
+        numbers = buildMap {
+            put("buttonWidth", 250f)
         },
         triggers = listOf(
             "Press",

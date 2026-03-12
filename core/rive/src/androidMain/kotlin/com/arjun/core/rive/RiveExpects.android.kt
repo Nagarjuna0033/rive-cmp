@@ -1,6 +1,9 @@
 package com.arjun.core.rive
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -11,6 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import app.rive.Alignment
+import app.rive.Fit
 import app.rive.Rive
 import app.rive.rememberRiveWorker
 import app.rive.rememberViewModelInstance
@@ -120,7 +126,9 @@ actual fun RiveComponent(
 
     Rive(
         file = riveFile,
-        modifier = modifier,
-        viewModelInstance = vmi
+        modifier = modifier.size(150.dp),
+//        modifier = Modifier.width(250.dp),
+        viewModelInstance = vmi,
+//        fit = Fit.Contain(Alignment.Center)
     )
 }
