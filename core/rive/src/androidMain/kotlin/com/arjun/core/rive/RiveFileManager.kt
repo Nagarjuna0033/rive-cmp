@@ -14,12 +14,16 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 class AndroidRiveFileManager(
     private val context: Context,
     val riveWorker: RiveWorker
 ) : RiveFileManager {
+
+    private val assetDir =
+        File(context.filesDir, "app_assets/assets")
 
     private val loadedFiles      = ConcurrentHashMap<String, RiveFile>()
     private val loadStates       = ConcurrentHashMap<String, RiveLoadState>()
@@ -89,7 +93,7 @@ class AndroidRiveFileManager(
                 return
             }
 
-            val bytes = loadRawBytes(asset.resourceName)
+            val bytes = loadFileBytes(asset.resourceName)
 
             when (asset.type) {
                 RiveAssetType.FONT -> {
@@ -118,17 +122,10 @@ class AndroidRiveFileManager(
     }
 
     // ── Build RiveFile from raw resource ──────────────────────────────
-    private suspend fun buildRiveFile(resourceName: String): RiveFile {
-        val resId = context.resources.getIdentifier(
-            resourceName, "raw", context.packageName
-        )
-        require(resId != 0) { "Raw resource not found: $resourceName" }
+    private suspend fun buildRiveFile(fileName: String): RiveFile {
 
-        val bytes = withContext(Dispatchers.IO) {
-            context.resources.openRawResource(resId).use { it.readBytes() }
-        }
+        val bytes = loadFileBytes(fileName)
 
-        // ── Use ByteArray source instead ───────────────────────────────────
         return when (
             val result = RiveFile.fromSource(
                 source = RiveFileSource.Bytes(bytes),
@@ -136,23 +133,26 @@ class AndroidRiveFileManager(
             )
         ) {
             is Result.Success -> result.value
-            is Result.Error   -> throw Exception(
-                "Failed to build RiveFile[$resourceName]: ${result.throwable?.message}"
+            is Result.Error -> throw Exception(
+                "Failed to build RiveFile[$fileName]: ${result.throwable?.message}"
             )
             is Result.Loading -> throw Exception(
-                "Unexpected Loading state for RiveFile[$resourceName]"
+                "Unexpected Loading state for RiveFile[$fileName]"
             )
         }
     }
 
     // ── Load raw bytes from res/raw ────────────────────────────────────
-    private suspend fun loadRawBytes(resourceName: String): ByteArray {
+    private suspend fun loadFileBytes(fileName: String): ByteArray {
         return withContext(Dispatchers.IO) {
-            val resId = context.resources.getIdentifier(
-                resourceName, "raw", context.packageName
-            )
-            require(resId != 0) { "Raw resource not found: $resourceName" }
-            context.resources.openRawResource(resId).use { it.readBytes() }
+
+            val file = File(assetDir, fileName)
+
+            require(file.exists()) {
+                "Asset file not found: ${file.absolutePath}"
+            }
+
+            file.readBytes()
         }
     }
 

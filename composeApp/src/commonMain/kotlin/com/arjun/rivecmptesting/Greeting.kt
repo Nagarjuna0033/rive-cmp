@@ -156,8 +156,8 @@ val dummyServerData = listOf(
             text = "Locked",
             locked = true,
             cash = true,
-            coin = false,
-            isNew = false
+            coin = true,
+            isNew = true
         )
     )
 )
@@ -176,27 +176,57 @@ fun ContestServerModel.toContestItem(): ContestItem {
 @Composable
 fun ContestLargeCards() {
 
-    val contests = remember {
-        dummyServerData
+    var contests by remember {
+        mutableStateOf(dummyServerData)
     }
 
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Column {
 
-        items(contests) { contest ->
+        Button(
+//            modifier = Modifier.width(50.dp).height(50.dp),
+            onClick = {
 
-            LargeCardContent(
-                name = contest.name,
-                gameNameKey = contest.name,
-                playerCount = contest.playerCount,
-                prizePool = contest.prizePool,
-                currencyType = contest.currencyType,
-                onClick = {},
-            ) {
-                PrimaryButton(contest.toContestItem())
+                // change first button text
+                contests = contests.mapIndexed { index, contest ->
+
+                    if (index == 0) {
+                        contest.copy(
+                            cta = contest.cta.copy(
+                                text = if (contest.cta.text == "Play Now")
+                                    "Clicked!"
+                                else
+                                    "Play Now"
+                            )
+                        )
+                    } else contest
+
+                }
+
             }
+        ) {
+            Text("Toggle  Text")
+        }
 
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+
+            items(
+                items = contests,
+                key = { it.id }
+            ) { contest ->
+                LargeCardContent(
+                    name = contest.name,
+                    gameNameKey = contest.name,
+                    playerCount = contest.playerCount,
+                    prizePool = contest.prizePool,
+                    currencyType = contest.currencyType,
+                    onClick = {},
+                ) {
+                    PrimaryButton(contest.toContestItem())
+                }
+
+            }
         }
     }
 }

@@ -5,7 +5,7 @@ object RiveConfigs {
 
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
-        const val CONTEST_BUTTON    = "testing"
+        const val CONTEST_BUTTON    = "testing.riv"
         const val HOME_BANNER       = "home_banner"
         const val PRIZE_TRACK       = "prize_track"
         const val CHEST             = "chest"
@@ -21,10 +21,10 @@ object RiveConfigs {
 
     // ── Raw resource names (without extension) ─────────────────────────
     object ResourceNames {
-        const val FONT_RAJDHANI = "outfit"
-        const val IMAGE_IC_COIN     = "coin"
-        const val IMAGE_IC_CASH     = "cash"
-        const val IMAGE_IC_GEM      = "lock"
+        const val FONT_RAJDHANI = "outfit.ttf"
+        const val IMAGE_IC_COIN     = "coin.webp"
+        const val IMAGE_IC_CASH     = "cash.webp"
+        const val IMAGE_IC_GEM      = "lock.webp"
     }
 
     // ── Per-file configs ───────────────────────────────────────────────
