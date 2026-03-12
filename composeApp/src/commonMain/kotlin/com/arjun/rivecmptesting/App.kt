@@ -22,35 +22,6 @@ import org.jetbrains.compose.resources.painterResource
 import rivecmptesting.composeapp.generated.resources.Res
 import rivecmptesting.composeapp.generated.resources.compose_multiplatform
 
-//@Composable
-//@Preview
-//fun App() {
-//    MaterialTheme {
-//        var showContent by remember { mutableStateOf(false) }
-//        Column(
-//            modifier = Modifier
-//                .background(MaterialTheme.colorScheme.primaryContainer)
-//                .safeContentPadding()
-//                .fillMaxSize(),
-//            horizontalAlignment = Alignment.CenterHorizontally,
-//        ) {
-//            Button(onClick = { showContent = !showContent }) {
-//                Text("Click me!")
-//            }
-//            AnimatedVisibility(showContent) {
-//                val greeting = remember { Greeting().greet() }
-//                Column(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalAlignment = Alignment.CenterHorizontally,
-//                ) {
-//                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-//                    Text("Compose: $greeting")
-//                }
-//            }
-//        }
-//    }
-//}
-
 
 @Composable
 @Preview
@@ -77,41 +48,8 @@ fun App() {
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-
-//                Button(onClick = { showContent = !showContent }) {
-//                    Text("Click me!")
-//                }
-//
-//                AnimatedVisibility(showContent) {
-//                    val greeting = remember { Greeting().greet() }
-//
-//                    Column(
-//                        modifier = Modifier.fillMaxWidth(),
-//                        horizontalAlignment = Alignment.CenterHorizontally,
-//                    ) {
-//
-//                        Image(
-//                            painterResource(Res.drawable.compose_multiplatform),
-//                            null
-//                        )
-//
-//                        Text("Compose: $greeting")
-//
-//                        // Example Rive usage
-//                        ContestScreen(sampleContests)
-//                    }
-//                }
-
                 ContestLargeCards()
             }
         }
     }
 }
-
-
-val sampleContests = listOf(
-    ContestItem(id = 1, "Testing", isCash = true),
-    ContestItem(id = 2, "Practice", isCoin = true),
-    ContestItem(id = 3, "Locked", isLocked = true),
-    ContestItem(id = 4, "New Mode", isNew = true)
-)
