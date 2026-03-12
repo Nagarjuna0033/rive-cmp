@@ -2,7 +2,6 @@ package com.arjun.rivecmptesting
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,20 +12,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -39,16 +32,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.arjun.core.rive.RiveComponent
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveController
-import com.arjun.core.rive.RiveEvent
 import com.arjun.core.rive.RiveEventCallback
 import com.arjun.core.rive.RiveItemConfigs
+import com.arjun.core.rive.RiveProps
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -99,11 +90,14 @@ fun PrimaryButton(contest: ContestItem) {
                 println("animationName = [$animationName]")
                 scope.launch {
 
-                    controller?.setString("Button Text", "Loading...")
+                    controller?.setString(
+                        RiveProps.ContestButton.BUTTON_TEXT,
+                        "Loading..."
+                    )
 
                     delay(2000)
 
-                    controller?.setString("Button Text", contest.name)
+                    controller?.setString(RiveProps.ContestButton.BUTTON_TEXT, contest.name)
                 }
             }
         },

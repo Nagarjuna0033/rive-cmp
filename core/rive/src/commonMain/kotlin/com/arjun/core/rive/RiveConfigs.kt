@@ -70,6 +70,22 @@ object RiveConfigs {
 }
 
 // ── Pre-built RiveItemConfigs for reuse across features ────────────────
+
+object RiveProps {
+
+    object ContestButton {
+        const val BUTTON_TEXT = "Button Text"
+        const val RIGHT_CASH = "Right Cash"
+        const val RIGHT_COIN = "Right Coin"
+        const val SHOW_LOCK_ICON = "Show Lock Icon"
+        const val NEW_TAG = "New Tag"
+        const val BUTTON_WIDTH = "buttonWidth"
+
+        const val PRESS_TRIGGER = "Press"
+    }
+
+}
+
 object RiveItemConfigs {
 
     // Contest button — dynamic
@@ -80,18 +96,20 @@ object RiveItemConfigs {
         showLock: Boolean = false,
         isNew: Boolean = false,
     ) = RiveItemConfig(
-        strings = mapOf("Button Text" to buttonText),
+        strings = mapOf(
+            RiveProps.ContestButton.BUTTON_TEXT to buttonText
+        ),
         enums = buildMap {
-            put("Right Cash",      if (showCash) "Show" else "Hide")
-            put("Right Coin",      if (showCoin) "Show" else "Hide")
-            put("Show Lock Icon",  if (showLock) "Show" else "Hide")
-            put("New Tag",         if (isNew)    "Show" else "Hide")
+            put(RiveProps.ContestButton.RIGHT_CASH, if (showCash) "Show" else "Hide")
+            put(RiveProps.ContestButton.RIGHT_COIN, if (showCoin) "Show" else "Hide")
+            put(RiveProps.ContestButton.SHOW_LOCK_ICON, if (showLock) "Show" else "Hide")
+            put(RiveProps.ContestButton.NEW_TAG, if (isNew) "Show" else "Hide")
         },
-        numbers = buildMap {
-            put("buttonWidth", 150f)
-        },
+        numbers = mapOf(
+            RiveProps.ContestButton.BUTTON_WIDTH to 150f
+        ),
         triggers = listOf(
-            "Press",
+            RiveProps.ContestButton.PRESS_TRIGGER
         )
     )
 
