@@ -1,5 +1,7 @@
 package com.arjun.core.rive
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -10,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
+import androidx.compose.ui.unit.dp
 import kotlinx.cinterop.ExperimentalForeignApi
 
 @Composable
@@ -48,6 +51,8 @@ actual fun RiveProvider(
 @Composable
 actual fun RiveComponent(
     resourceName: String,
+    height: Int?,
+    width: Int?,
     modifier: Modifier,
     config: RiveItemConfig,
     eventCallback: RiveEventCallback?,
@@ -93,8 +98,15 @@ actual fun RiveComponent(
         onDispose { handle.destroy() }
     }
 
+    // Resolve width/height — matches Android pattern
+    val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()
+
+    val riveModifier = modifier
+        .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
+        .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
+
     UIKitView(
         factory = { handle.getUIView() },
-        modifier = modifier
+        modifier = riveModifier
     )
 }

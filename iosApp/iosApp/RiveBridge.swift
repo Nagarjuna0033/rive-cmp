@@ -164,6 +164,14 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
     // handle gets its own independent enableAutoBind VMI.
     private var loadedConfigs: [String: [String: RiveAssetConfig]] = [:]
 
+    /// Strip .riv extension if present — RiveModel(fileName:) expects name without extension
+    private static func stripRivExtension(_ name: String) -> String {
+        if name.hasSuffix(".riv") {
+            return String(name.dropLast(4))
+        }
+        return name
+    }
+
     func preloadFiles(configs: [RiveFileConfig]) -> Bool {
         for config in configs {
             if loadedConfigs[config.resourceName] != nil {
@@ -175,10 +183,12 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                 assetMap[asset.assetId] = asset
             }
 
+            let fileName = Self.stripRivExtension(config.resourceName)
+
             // Validate the file can be loaded
             do {
                 let _ = try RiveModel(
-                    fileName: config.resourceName,
+                    fileName: fileName,
                     loadCdn: false,
                     customLoader: { [assetMap] asset, data, factory in
                         return Self.loadAsset(
@@ -204,9 +214,12 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
             print("[SwiftRiveBridge] No config for: \(resourceName)")
             return nil
         }
+
+        let fileName = Self.stripRivExtension(resourceName)
+
         do {
             let model = try RiveModel(
-                fileName: resourceName,
+                fileName: fileName,
                 loadCdn: false,
                 customLoader: { [assetMap] asset, data, factory in
                     return Self.loadAsset(
@@ -253,11 +266,22 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
             return false
         }
 
-        let resourceName = config.resourceName
+        let rawName = config.resourceName
+
+        // Support resourceName with or without extension (e.g. "coin.webp" or "coin")
+        let resourceName: String
+        let configExt: String?
+        if let dotIndex = rawName.lastIndex(of: ".") {
+            resourceName = String(rawName[rawName.startIndex..<dotIndex])
+            configExt = String(rawName[rawName.index(after: dotIndex)...])
+        } else {
+            resourceName = rawName
+            configExt = nil
+        }
 
         if let fontAsset = asset as? RiveFontAsset {
-            // Try file extension from Rive, then common font extensions
-            for ext in [asset.fileExtension(), "ttf", "otf"] {
+            let extensions = [configExt, asset.fileExtension(), "ttf", "otf"].compactMap { $0 }
+            for ext in extensions {
                 if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
                    let fontData = try? Data(contentsOf: url) {
                     let decodedFont = factory.decodeFont(fontData)
@@ -266,13 +290,13 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                     return true
                 }
             }
-            print("[SwiftRiveBridge] Font not found: \(uniqueName), resource: \(resourceName)")
+            print("[SwiftRiveBridge] Font not found: \(uniqueName), resource: \(rawName)")
             return false
         }
 
         if let imageAsset = asset as? RiveImageAsset {
-            // Try file extension from Rive, then common image extensions
-            for ext in [asset.fileExtension(), "webp", "png", "jpg", "jpeg"] {
+            let extensions = [configExt, asset.fileExtension(), "webp", "png", "jpg", "jpeg"].compactMap { $0 }
+            for ext in extensions {
                 if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
                    let imageData = try? Data(contentsOf: url) {
                     let decoded = factory.decodeImage(imageData)
@@ -281,7 +305,7 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                     return true
                 }
             }
-            print("[SwiftRiveBridge] Image not found: \(uniqueName), resource: \(resourceName)")
+            print("[SwiftRiveBridge] Image not found: \(uniqueName), resource: \(rawName)")
             return false
         }
 
