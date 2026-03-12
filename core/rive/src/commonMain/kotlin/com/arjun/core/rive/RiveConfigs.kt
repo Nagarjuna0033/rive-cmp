@@ -88,7 +88,7 @@ object RiveItemConfigs {
             put("New Tag",         if (isNew)    "Show" else "Hide")
         },
         numbers = buildMap {
-            put("buttonWidth", 250f)
+            put("buttonWidth", 150f)
         },
         triggers = listOf(
             "Press",

@@ -32,6 +32,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,8 @@ import com.arjun.core.rive.RiveController
 import com.arjun.core.rive.RiveEvent
 import com.arjun.core.rive.RiveEventCallback
 import com.arjun.core.rive.RiveItemConfigs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 class Greeting {
@@ -76,35 +79,36 @@ val ColorTextSecondary = ColorGrayGray600
 fun PrimaryButton(contest: ContestItem) {
     var controller by remember { mutableStateOf<RiveController?>(null) }
 
-    Box(
+    val scope = rememberCoroutineScope()
+    RiveComponent(
+        resourceName = RiveConfigs.Files.CONTEST_BUTTON,
+        width = 150,
+        height = 75,
         modifier = Modifier
-            .fillMaxWidth()
             .background(Color.Red)
-//            .padding(15.dp)
-//            .height(90.dp)
-    ) {
+            .clickable { controller?.fireTrigger("Press") },
+        config = RiveItemConfigs.contestButton(
+            buttonText = contest.name,
+            showCash = contest.isCash,
+            showCoin = contest.isCoin,
+            showLock = contest.isLocked,
+            isNew = contest.isNew,
+        ),
+        eventCallback = object : RiveEventCallback {
+            override fun onTriggerAnimation(animationName: String) {
+                println("animationName = [$animationName]")
+                scope.launch {
 
-        RiveComponent(
-            resourceName = RiveConfigs.Files.CONTEST_BUTTON,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Red)
-                .clickable { controller?.fireTrigger("Press") },
-            config = RiveItemConfigs.contestButton(
-                buttonText = contest.name,
-                showCash = contest.isCash,
-                showCoin = contest.isCoin,
-                showLock = contest.isLocked,
-                isNew = contest.isNew,
-            ),
-            eventCallback = object : RiveEventCallback {
-                override fun onTriggerAnimation(animationName: String) {
-                    println("animationName = [$animationName]")
+                    controller?.setString("Button Text", "Loading...")
+
+                    delay(2000)
+
+                    controller?.setString("Button Text", contest.name)
                 }
-            },
-            onControllerReady = { controller = it }
-        )
-    }
+            }
+        },
+        onControllerReady = { controller = it }
+    )
 }
 
 data class ContestServerModel(
@@ -158,7 +162,7 @@ val dummyServerData = listOf(
         cta = ContestCta(
             text = "Locked",
             locked = true,
-            cash = true,
+            cash = false,
             coin = true,
             isNew = true
         )
@@ -184,31 +188,6 @@ fun ContestLargeCards() {
     }
 
     Column {
-
-        Button(
-//            modifier = Modifier.width(50.dp).height(50.dp),
-            onClick = {
-
-                // change first button text
-                contests = contests.mapIndexed { index, contest ->
-
-                    if (index == 0) {
-                        contest.copy(
-                            cta = contest.cta.copy(
-                                text = if (contest.cta.text == "Play Now")
-                                    "Clicked!"
-                                else
-                                    "Play Now"
-                            )
-                        )
-                    } else contest
-
-                }
-
-            }
-        ) {
-            Text("Toggle  Text")
-        }
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -277,7 +256,7 @@ fun LargeCardContent(
     Column(
         modifier = Modifier
             .width(332.dp)
-            .height(232.dp)
+            .height(250.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable { onClick() }
     ) {

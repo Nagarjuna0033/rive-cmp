@@ -24,6 +24,8 @@ expect fun RiveProvider(
 @Composable
 expect fun RiveComponent(
     resourceName: String,
+    height: Int?,
+    width: Int?,
     modifier: Modifier = Modifier,
     config: RiveItemConfig = RiveItemConfig(),
     eventCallback: RiveEventCallback? = null,

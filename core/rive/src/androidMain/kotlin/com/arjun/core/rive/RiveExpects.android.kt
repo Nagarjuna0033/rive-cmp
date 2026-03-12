@@ -1,6 +1,7 @@
 package com.arjun.core.rive
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,6 +66,8 @@ actual fun RiveProvider(
 @Composable
 actual fun RiveComponent(
     resourceName: String,
+    height: Int?,
+    width: Int?,
     modifier: Modifier,
     config: RiveItemConfig,
     eventCallback: RiveEventCallback?,
@@ -124,11 +127,18 @@ actual fun RiveComponent(
         onDispose { controller.destroy() }
     }
 
+    val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()
+
+    val riveModifier = modifier
+        .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
+        .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
+
     Rive(
         file = riveFile,
-        modifier = modifier.size(150.dp),
+//        modifier = modifier,
+        modifier = riveModifier,
 //        modifier = Modifier.width(250.dp),
         viewModelInstance = vmi,
-//        fit = Fit.Contain(Alignment.Center)
+        fit = Fit.Contain(Alignment.Center)
     )
 }
