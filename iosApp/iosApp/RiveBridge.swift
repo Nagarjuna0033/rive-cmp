@@ -63,15 +63,19 @@ class SwiftRiveHandle: IOSRiveHandle {
     override func setStringProperty(name: String, value: String) {
         executeWithVMI { [weak self] in
             guard let self, let vmi = self.boundVMI else { return }
-            if let prop = vmi.stringProperty(fromPath: name) {
-                prop.value = value
-                print("[SwiftRiveHandle] String set: \(name) = \(value)")
-            } else {
-                // Fallback to text run API
-                do {
-                    try self.riveViewModel.setTextRunValue(name, textValue: value)
-                    print("[SwiftRiveHandle] String set via text run: \(name) = \(value)")
-                } catch {
+            // Use text run API as primary — it goes through the state machine
+            // rendering pipeline and triggers visual updates reliably.
+            // Direct prop.value sets the value but doesn't synchronize with
+            // the render thread, causing visual updates to be missed.
+            do {
+                try self.riveViewModel.setTextRunValue(name, textValue: value)
+                print("[SwiftRiveHandle] String set via text run: \(name) = \(value)")
+            } catch {
+                // Fallback to VMI property for non-text-run strings
+                if let prop = vmi.stringProperty(fromPath: name) {
+                    prop.value = value
+                    print("[SwiftRiveHandle] String set via VMI: \(name) = \(value)")
+                } else {
                     print("[SwiftRiveHandle] String property not found: \(name)")
                 }
             }
