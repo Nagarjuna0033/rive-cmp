@@ -44,15 +44,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-class Greeting {
-    private val platform = getPlatform()
-
-    fun greet(): String {
-        return "Hello, ${platform.name}!"
-    }
-}
-
-
 val ColorNeutralWhite = Color(0xFFFFFFFF)
 val ColorGrayGray50 = Color(0xFFFDFCFD)
 val ColorGrayGray900 = Color(0xFF261A2C)
@@ -76,7 +67,6 @@ fun PrimaryButton(contest: ContestItem) {
         width = 150,
         height = 75,
         modifier = Modifier
-            .background(Color.Red)
             .clickable { controller?.fireTrigger("Press") },
         config = RiveItemConfigs.contestButton(
             buttonText = contest.name,
@@ -181,7 +171,7 @@ fun ContestLargeCards() {
         mutableStateOf(dummyServerData)
     }
 
-    Column {
+    Column (modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally){
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp)
