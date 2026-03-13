@@ -74,11 +74,20 @@ object RiveConfigs {
 object RiveProps {
 
     object ContestButton {
+
         const val BUTTON_TEXT = "Button Text"
+        const val TRAILING_TEXT = "Trailing Text"
+
         const val RIGHT_CASH = "Right Cash"
         const val RIGHT_COIN = "Right Coin"
         const val SHOW_LOCK_ICON = "Show Lock Icon"
         const val NEW_TAG = "New Tag"
+
+        const val BUTTON_VARIANT = "Button Variant"
+
+        const val IS_LOADING = "Is Loading"
+        const val IS_ENABLED = "Is Enabled"
+
         const val BUTTON_WIDTH = "buttonWidth"
 
         const val PRESS_TRIGGER = "Press"
