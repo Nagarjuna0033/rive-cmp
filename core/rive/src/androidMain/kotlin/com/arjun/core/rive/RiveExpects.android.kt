@@ -46,7 +46,6 @@ actual fun RiveProvider(
     var loadState by remember { mutableStateOf<RiveLoadState>(RiveLoadState.Loading) }
 
     LaunchedEffect(configs) {
-        RiveCore.init(context)
         loadState = fileManager.preloadAll(configs)
     }
 
@@ -87,8 +86,25 @@ actual fun RiveComponent(
     val controller = remember(vmi) { AndroidRiveController(vmi) }
 
     LaunchedEffect(vmi, config) {
-        controller.applyConfig(config)
+
         onControllerReady?.invoke(controller)
+
+        config.booleans.forEach { (k, v) ->
+            controller.setBoolean(k, v)
+        }
+
+        config.strings.forEach { (k, v) ->
+            controller.setString(k, v)
+        }
+
+        config.enums.forEach { (k, v) ->
+            controller.setEnum(k, v)
+        }
+
+        config.numbers.forEach { (k, v) ->
+            controller.setNumber(k, v)
+        }
+
         config.triggers.forEach { trigger ->
             launch {
                 vmi.getTriggerFlow(trigger)
@@ -99,29 +115,6 @@ actual fun RiveComponent(
         }
     }
 
-    LaunchedEffect(config.booleans) {
-        config.booleans.forEach { (k, v) ->
-            controller.setBoolean(k, v)
-        }
-    }
-
-    LaunchedEffect(config.strings) {
-        config.strings.forEach { (k, v) ->
-            controller.setString(k, v)
-        }
-    }
-
-    LaunchedEffect(config.enums) {
-        config.enums.forEach { (k, v) ->
-            controller.setEnum(k, v)
-        }
-    }
-
-    LaunchedEffect(config.numbers) {
-        config.numbers.forEach { (k, v) ->
-            controller.setNumber(k, v)
-        }
-    }
 
     DisposableEffect(controller) {
         onDispose { controller.destroy() }
