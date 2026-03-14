@@ -51,6 +51,8 @@ actual fun RiveProvider(
 @Composable
 actual fun RiveComponent(
     resourceName: String,
+    instanceKey: String,
+    viewModelName: String,
     height: Int?,
     width: Int?,
     modifier: Modifier,

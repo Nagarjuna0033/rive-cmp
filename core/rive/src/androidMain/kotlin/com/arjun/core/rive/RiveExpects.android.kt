@@ -43,17 +43,29 @@ actual fun RiveProvider(
         AndroidRiveFileManager(context, riveWorker)
     }
 
+    val runtime = remember(fileManager) {
+        RiveRuntime(fileManager)
+    }
+
     var loadState by remember { mutableStateOf<RiveLoadState>(RiveLoadState.Loading) }
 
     LaunchedEffect(configs) {
         loadState = fileManager.preloadAll(configs)
     }
 
+    DisposableEffect(runtime) {
+        onDispose {
+            runtime.clear()
+            fileManager.clearAll()
+        }
+    }
+
     CompositionLocalProvider(
-        LocalRiveFileManager provides fileManager
+        LocalRiveFileManager provides fileManager,
+        LocalRiveRuntime provides runtime
     ) {
         when (val state = loadState) {
-            is RiveLoadState.Loading -> loadingContent()
+            is RiveLoadState.Loading -> {}
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> content()
             is RiveLoadState.Idle -> loadingContent()
@@ -65,6 +77,8 @@ actual fun RiveProvider(
 @Composable
 actual fun RiveComponent(
     resourceName: String,
+    instanceKey: String,
+    viewModelName: String,
     height: Int?,
     width: Int?,
     modifier: Modifier,
@@ -74,14 +88,24 @@ actual fun RiveComponent(
 ) {
 
     val fileManager = LocalRiveFileManager.current as? AndroidRiveFileManager
+    val runtime = LocalRiveRuntime.current ?: return
 
     val riveFile = remember(resourceName, fileManager) {
         fileManager?.getFile(resourceName)
     } ?: return
 
-    val vmi = rememberViewModelInstance(
-        file = riveFile,
-    )
+//    val vmi = rememberViewModelInstance(
+//        file = riveFile,
+//    )
+
+//
+    val vmi = remember(resourceName, instanceKey) {
+        runtime.getInstance(
+            resourceName = resourceName,
+            instanceKey = instanceKey,
+            viewModelName = viewModelName,
+        )
+    }
 
     val controller = remember(vmi) { AndroidRiveController(vmi) }
 
@@ -113,11 +137,6 @@ actual fun RiveComponent(
                     }
             }
         }
-    }
-
-
-    DisposableEffect(controller) {
-        onDispose { controller.destroy() }
     }
 
     val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()

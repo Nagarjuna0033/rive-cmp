@@ -75,6 +75,8 @@ fun PrimaryButton(contest: ContestItem) {
             showLock = contest.isLocked,
             isNew = contest.isNew,
         ),
+        instanceKey = contest.id.toString(),
+        viewModelName = "Button",
         eventCallback = object : RiveEventCallback {
             override fun onTriggerAnimation(animationName: String) {
                 println("animationName = [$animationName]")
