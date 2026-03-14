@@ -34,8 +34,7 @@ class AndroidRiveController(
     }
 
     override fun destroy() {
-//        runCatching { vmi.release() }
-//            .onFailure { logError("destroy", it) }
+
     }
 
     // Expose raw VMI for advanced use

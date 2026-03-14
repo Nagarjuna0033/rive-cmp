@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 val LocalRiveFileManager: ProvidableCompositionLocal<RiveFileManager?> =
     staticCompositionLocalOf { null }
 
+
+
 // ── Expect: RiveProvider ───────────────────────────────────────────────
 // Wraps app root — preloads all rive files before rendering children
 @Composable
@@ -24,6 +26,8 @@ expect fun RiveProvider(
 @Composable
 expect fun RiveComponent(
     resourceName: String,
+    instanceKey: String,
+    viewModelName: String,
     height: Int?,
     width: Int?,
     modifier: Modifier = Modifier,
