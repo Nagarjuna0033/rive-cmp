@@ -72,11 +72,13 @@ actual fun RiveComponent(
 
     val controller = remember(handle) { IOSRiveController(handle) }
 
-    // Apply all properties in a single LaunchedEffect — matches Android pattern
-    LaunchedEffect(handle, config) {
-
+    // Notify controller ready once per handle (not on every config change)
+    LaunchedEffect(handle) {
         onControllerReady?.invoke(controller)
+    }
 
+    // Apply all properties when config changes
+    LaunchedEffect(handle, config) {
         config.booleans.forEach { (k, v) ->
             controller.setBoolean(k, v)
         }

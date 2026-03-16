@@ -6,9 +6,6 @@ import app.rive.ViewModelInstanceSource
 import app.rive.ViewModelSource
 import java.util.concurrent.ConcurrentHashMap
 
-// RiveSessionManager.kt — lives as a DI singleton or in your Application class
-// Owns the worker + file cache. ViewModel holds a reference to this.
-
 val LocalRiveRuntime = staticCompositionLocalOf<RiveRuntime?> { null }
 
 class RiveRuntime(
@@ -26,9 +23,10 @@ class RiveRuntime(
         val key = "$resourceName-$instanceKey"
 
         val file = fileManager.getFile(resourceName)
-            ?: error("Rive file not loaded: $resourceName")
+            ?: error("Rive file not loaded: $resourceName. Ensure RiveProvider has finished loading before using RiveComponent.")
 
-        return instanceCache.getOrPut(key) {
+        // computeIfAbsent is atomic on ConcurrentHashMap — prevents duplicate VMI creation
+        return instanceCache.computeIfAbsent(key) {
 
             val source =
                 ViewModelInstanceSource.Default(

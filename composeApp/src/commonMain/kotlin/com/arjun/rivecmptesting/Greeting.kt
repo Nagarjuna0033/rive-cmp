@@ -22,8 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -217,15 +215,6 @@ enum class CurrencyType(val value: String) {
         }
     }
 }
-
-@Stable
-sealed class PrimaryButtonVariant {
-    data object Yellow : PrimaryButtonVariant()
-    data object LightYello : PrimaryButtonVariant()
-    data object Green : PrimaryButtonVariant()
-}
-
-
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

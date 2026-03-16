@@ -48,12 +48,16 @@ class AndroidRiveFileManager(
 
         loadStates[config.resourceName] = RiveLoadState.Loading
 
+        // Track which assets we register so we can roll back on failure
+        val registeredForThisFile = mutableListOf<RiveAssetConfig>()
+
         return try {
 
             coroutineScope {
-                config.assets.map {
+                config.assets.map { asset ->
                     async(Dispatchers.IO) {
-                        loadAndRegisterAsset(it)
+                        loadAndRegisterAsset(asset)
+                        registeredForThisFile.add(asset)
                     }
                 }.awaitAll()
             }
@@ -67,6 +71,18 @@ class AndroidRiveFileManager(
             }
 
         } catch (e: Exception) {
+
+            // Roll back registered assets so retry can re-register them
+            registeredForThisFile.forEach { asset ->
+                runCatching {
+                    when (asset.type) {
+                        RiveAssetType.FONT -> FontAssetOps.unregister(riveWorker, asset.assetId)
+                        RiveAssetType.IMAGE -> ImageAssetOps.unregister(riveWorker, asset.assetId)
+                        RiveAssetType.AUDIO -> AudioAssetOps.unregister(riveWorker, asset.assetId)
+                    }
+                    registeredAssets.remove(asset.assetId)
+                }
+            }
 
             RiveLoadState.Error(e.message ?: "Unknown error")
                 .also { loadStates[config.resourceName] = it }

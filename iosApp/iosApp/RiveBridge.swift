@@ -14,25 +14,30 @@ class SwiftRiveHandle: IOSRiveHandle {
     private var pendingOperations: [() -> Void] = []
     private var boundVMI: RiveDataBindingViewModel.Instance?
     private var triggerListenerIds: [UUID] = []
+    private var isDestroyed = false
 
     init(riveModel: RiveModel) {
         self.riveModel = riveModel
         self.riveViewModel = RiveViewModel(riveModel, autoPlay: true)
         super.init()
 
-        // Use enableAutoBind to get a VMI that's connected to the rendering pipeline
+        // Use enableAutoBind to get a VMI that's connected to the rendering pipeline.
+        // Callback may fire on a non-main thread, so dispatch to main for thread safety.
         riveModel.enableAutoBind { [weak self] instance in
-            guard let self else { return }
-            self.boundVMI = instance
-            print("[SwiftRiveHandle] AutoBind VMI received, \(instance.propertyCount) properties:")
-            for prop in instance.properties {
-                print("[SwiftRiveHandle]   - \"\(prop.name)\" (type: \(prop.type.rawValue))")
-            }
-            // Flush any buffered operations
-            if !self.pendingOperations.isEmpty {
-                print("[SwiftRiveHandle] Flushing \(self.pendingOperations.count) pending operations")
-                for op in self.pendingOperations { op() }
-                self.pendingOperations.removeAll()
+            DispatchQueue.main.async {
+                guard let self, !self.isDestroyed else { return }
+                self.boundVMI = instance
+                print("[SwiftRiveHandle] AutoBind VMI received, \(instance.propertyCount) properties:")
+                for prop in instance.properties {
+                    print("[SwiftRiveHandle]   - \"\(prop.name)\" (type: \(prop.type.rawValue))")
+                }
+                // Flush any buffered operations
+                if !self.pendingOperations.isEmpty {
+                    print("[SwiftRiveHandle] Flushing \(self.pendingOperations.count) pending operations")
+                    let ops = self.pendingOperations
+                    self.pendingOperations.removeAll()
+                    for op in ops { op() }
+                }
             }
         }
     }
@@ -49,12 +54,23 @@ class SwiftRiveHandle: IOSRiveHandle {
     }
 
     // MARK: - VMI access
+    // All operations are dispatched to main thread to ensure:
+    // 1. Thread-safe access to pendingOperations and boundVMI
+    // 2. UIKit operations (advance) always run on main thread
 
     private func executeWithVMI(_ operation: @escaping () -> Void) {
-        if boundVMI != nil {
-            operation()
+        let execute = { [weak self] in
+            guard let self, !self.isDestroyed else { return }
+            if self.boundVMI != nil {
+                operation()
+            } else {
+                self.pendingOperations.append(operation)
+            }
+        }
+        if Thread.isMainThread {
+            execute()
         } else {
-            pendingOperations.append(operation)
+            DispatchQueue.main.async(execute: execute)
         }
     }
 
@@ -115,27 +131,25 @@ class SwiftRiveHandle: IOSRiveHandle {
     }
 
     override func fireTrigger(name: String) {
-        if let vmi = boundVMI, let prop = vmi.triggerProperty(fromPath: name) {
-            prop.trigger()
-            print("[SwiftRiveHandle] Trigger fired: \(name)")
-            return
-        }
-        // Buffer if VMI not ready yet
-        if boundVMI == nil {
-            pendingOperations.append { [weak self] in
-                self?.fireTrigger(name: name)
+        executeWithVMI { [weak self] in
+            guard let self, let vmi = self.boundVMI else { return }
+            if let prop = vmi.triggerProperty(fromPath: name) {
+                prop.trigger()
+                print("[SwiftRiveHandle] Trigger fired: \(name)")
+            } else {
+                // Fallback to input-based trigger
+                self.riveViewModel.triggerInput(name)
+                print("[SwiftRiveHandle] Trigger fired via input: \(name)")
             }
-            return
         }
-        riveViewModel.triggerInput(name)
-        print("[SwiftRiveHandle] Trigger fired via input: \(name)")
     }
 
     override func addTriggerListener(name: String, callback: @escaping () -> Void) {
         executeWithVMI { [weak self] in
             guard let self, let vmi = self.boundVMI else { return }
             if let prop = vmi.triggerProperty(fromPath: name) {
-                let listenerId = prop.addListener {
+                let listenerId = prop.addListener { [weak self] in
+                    guard self?.isDestroyed == false else { return }
                     callback()
                 }
                 self.triggerListenerIds.append(listenerId)
@@ -147,6 +161,7 @@ class SwiftRiveHandle: IOSRiveHandle {
     }
 
     override func destroy() {
+        isDestroyed = true
         pendingOperations.removeAll()
         triggerListenerIds.removeAll()
         riveModel.disableAutoBind()

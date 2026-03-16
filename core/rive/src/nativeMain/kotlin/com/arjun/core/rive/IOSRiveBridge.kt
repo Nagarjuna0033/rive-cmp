@@ -1,5 +1,6 @@
 package com.arjun.core.rive
 
+import kotlin.concurrent.Volatile
 import platform.UIKit.UIView
 
 // Wraps a single Rive view instance — subclassed in Swift
@@ -24,5 +25,6 @@ interface IOSRiveBridge {
 
 // iOS app registers its bridge here before Compose starts
 object IOSRivePlatform {
+    @Volatile
     var bridge: IOSRiveBridge? = null
 }

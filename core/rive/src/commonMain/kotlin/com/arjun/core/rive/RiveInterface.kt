@@ -14,7 +14,6 @@ interface RiveController {
         config.enums.forEach    { (k, v) -> setEnum(k, v) }
         config.booleans.forEach { (k, v) -> setBoolean(k, v) }
         config.numbers.forEach  { (k, v) -> setNumber(k, v) }
-//        config.triggers.forEach { fireTrigger(it) }
     }
 
     fun destroy()

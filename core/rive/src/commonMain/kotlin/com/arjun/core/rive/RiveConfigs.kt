@@ -6,9 +6,9 @@ object RiveConfigs {
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
         const val CONTEST_BUTTON    = "primary_button.riv"
-        const val HOME_BANNER       = "home_banner"
-        const val PRIZE_TRACK       = "prize_track"
-        const val CHEST             = "chest"
+        const val HOME_BANNER       = "home_banner.riv"
+        const val PRIZE_TRACK       = "prize_track.riv"
+        const val CHEST             = "chest.riv"
     }
 
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
@@ -21,7 +21,7 @@ object RiveConfigs {
 
     // ── Raw resource names (without extension) ─────────────────────────
     object ResourceNames {
-        const val FONT_RAJDHANI = "outfit.ttf"
+        const val FONT_OUTFIT = "outfit.ttf"
         const val IMAGE_IC_COIN     = "coin.webp"
         const val IMAGE_IC_CASH     = "cash.webp"
         const val IMAGE_IC_LOCK      = "lock.webp"
@@ -31,7 +31,7 @@ object RiveConfigs {
     val contestButton = RiveFileConfig(
         resourceName = Files.CONTEST_BUTTON,
         assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_RAJDHANI, RiveAssetType.FONT),
+            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
             RiveAssetConfig(AssetIds.IMAGE_COIN,    ResourceNames.IMAGE_IC_COIN, RiveAssetType.IMAGE),
             RiveAssetConfig(AssetIds.IMAGE_CASH,    ResourceNames.IMAGE_IC_CASH, RiveAssetType.IMAGE),
             RiveAssetConfig(AssetIds.IMAGE_LOCK,     ResourceNames.IMAGE_IC_LOCK,  RiveAssetType.IMAGE),
@@ -41,14 +41,14 @@ object RiveConfigs {
     val homeBanner = RiveFileConfig(
         resourceName = Files.HOME_BANNER,
         assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_RAJDHANI, RiveAssetType.FONT),
+            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
         )
     )
 
     val prizeTrack = RiveFileConfig(
         resourceName = Files.PRIZE_TRACK,
         assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_RAJDHANI, RiveAssetType.FONT),
+            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
             RiveAssetConfig(AssetIds.IMAGE_COIN,    ResourceNames.IMAGE_IC_COIN, RiveAssetType.IMAGE),
         )
     )
@@ -56,7 +56,7 @@ object RiveConfigs {
     val chest = RiveFileConfig(
         resourceName = Files.CHEST,
         assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_RAJDHANI, RiveAssetType.FONT),
+            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
         )
     )
 
@@ -108,12 +108,12 @@ object RiveItemConfigs {
         strings = mapOf(
             RiveProps.ContestButton.BUTTON_TEXT to buttonText
         ),
-        enums = buildMap {
-            put(RiveProps.ContestButton.RIGHT_CASH, if (showCash) "Show" else "Hide")
-            put(RiveProps.ContestButton.RIGHT_COIN, if (showCoin) "Show" else "Hide")
-            put(RiveProps.ContestButton.SHOW_LOCK_ICON, if (showLock) "Show" else "Hide")
-            put(RiveProps.ContestButton.NEW_TAG, if (isNew) "Show" else "Hide")
-        },
+        enums = mapOf(
+            RiveProps.ContestButton.RIGHT_CASH to if (showCash) "Show" else "Hide",
+            RiveProps.ContestButton.RIGHT_COIN to if (showCoin) "Show" else "Hide",
+            RiveProps.ContestButton.SHOW_LOCK_ICON to if (showLock) "Show" else "Hide",
+            RiveProps.ContestButton.NEW_TAG to if (isNew) "Show" else "Hide",
+        ),
         numbers = mapOf(
             RiveProps.ContestButton.BUTTON_WIDTH to 150f
         ),
