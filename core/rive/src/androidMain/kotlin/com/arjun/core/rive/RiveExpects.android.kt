@@ -98,7 +98,6 @@ actual fun RiveComponent(
 //        file = riveFile,
 //    )
 
-//
     val vmi = remember(resourceName, instanceKey) {
         runtime.getInstance(
             resourceName = resourceName,
@@ -107,7 +106,7 @@ actual fun RiveComponent(
         )
     }
 
-    val controller = remember(vmi) { AndroidRiveController(vmi) }
+    val controller = remember(instanceKey) { AndroidRiveController(vmi) }
 
     LaunchedEffect(vmi, config) {
 
@@ -141,15 +140,15 @@ actual fun RiveComponent(
 
     val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()
 
-    val riveModifier = modifier
-        .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
-        .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
+    val riveModifier = remember(resolvedWidth, height) {
+        modifier
+            .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
+            .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
+    }
 
     Rive(
         file = riveFile,
-//        modifier = modifier,
         modifier = riveModifier,
-//        modifier = Modifier.width(250.dp),
         viewModelInstance = vmi,
         fit = Fit.Contain(Alignment.Center)
     )
