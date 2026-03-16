@@ -4,6 +4,7 @@ import android.content.Context
 import app.rive.RiveFile
 import app.rive.RiveFileSource
 import app.rive.Result
+import app.rive.core.AudioHandle
 import app.rive.core.FontHandle
 import app.rive.core.ImageHandle
 import app.rive.core.RiveWorker
@@ -17,103 +18,110 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
+private const val IMAGE_TAG = "Rive/Image"
+private const val AUDIO_TAG = "Rive/Audio"
+private const val FONT_TAG = "Rive/Font"
+
 class AndroidRiveFileManager(
     private val context: Context,
     val riveWorker: RiveWorker
 ) : RiveFileManager {
 
-    private val assetDir =
-        File(context.filesDir, "app_assets/assets")
+    private val assetDir = File(context.filesDir, "app_assets/assets")
 
-    private val loadedFiles      = ConcurrentHashMap<String, RiveFile>()
-    private val loadStates       = ConcurrentHashMap<String, RiveLoadState>()
+    private val loadedFiles = ConcurrentHashMap<String, RiveFile>()
+    private val loadStates = ConcurrentHashMap<String, RiveLoadState>()
 
-    // ── Asset caches — decoded ONCE, shared across all files ──────────
-    private val fontCache        = ConcurrentHashMap<String, FontHandle>()
-    private val imageCache       = ConcurrentHashMap<String, ImageHandle>()
+    private val fontCache = ConcurrentHashMap<String, FontHandle>()
+    private val imageCache = ConcurrentHashMap<String, ImageHandle>()
+    private val audioCache = ConcurrentHashMap<String, AudioHandle>()
+
     private val registeredAssets = ConcurrentHashMap.newKeySet<String>()
-    private val assetMutex       = Mutex()
 
-    // ── Preload single file ────────────────────────────────────────────
+    private val assetMutex = Mutex()
+
     override suspend fun preloadFile(config: RiveFileConfig): RiveLoadState {
+
         if (isFileLoaded(config.resourceName)) {
-            println("[RiveFileManager] Already loaded: ${config.resourceName}")
             return RiveLoadState.Success
         }
 
         loadStates[config.resourceName] = RiveLoadState.Loading
 
         return try {
-            // Step 1: Register all assets in parallel
+
             coroutineScope {
-                config.assets.map { asset ->
-                    async(Dispatchers.IO) { loadAndRegisterAsset(asset) }
+                config.assets.map {
+                    async(Dispatchers.IO) {
+                        loadAndRegisterAsset(it)
+                    }
                 }.awaitAll()
             }
 
-            // Step 2: Build RiveFile AFTER assets are registered
             val riveFile = buildRiveFile(config.resourceName)
 
-            // Step 3: Store file
             loadedFiles[config.resourceName] = riveFile
-            println("[RiveFileManager] Successfully loaded: ${config.resourceName}")
 
             RiveLoadState.Success.also {
                 loadStates[config.resourceName] = it
             }
 
         } catch (e: Exception) {
-            println("[RiveFileManager] Error loading ${config.resourceName}: ${e.message}")
-            RiveLoadState.Error(
-                e.message ?: "Unknown error loading ${config.resourceName}"
-            ).also {
-                loadStates[config.resourceName] = it
-            }
+
+            RiveLoadState.Error(e.message ?: "Unknown error")
+                .also { loadStates[config.resourceName] = it }
         }
     }
 
-    // ── Preload all — sequential to avoid asset registration races ─────
     override suspend fun preloadAll(configs: List<RiveFileConfig>): RiveLoadState {
-        // Sequential — ensures assets registered before next file starts
-        configs.forEach { config ->
-            val result = preloadFile(config)
+
+        configs.forEach {
+
+            val result = preloadFile(it)
+
             if (result is RiveLoadState.Error) {
-                println("[RiveFileManager] preloadAll failed at: ${config.resourceName}")
                 return result
             }
         }
+
         return RiveLoadState.Success
     }
 
-    // ── Load + register asset only ONCE per assetId ───────────────────
     private suspend fun loadAndRegisterAsset(asset: RiveAssetConfig) {
+
         assetMutex.withLock {
-            if (registeredAssets.contains(asset.assetId)) {
-                println("[RiveFileManager] Skip already registered: ${asset.assetId}")
-                return
-            }
+
+            if (registeredAssets.contains(asset.assetId)) return
 
             val bytes = loadFileBytes(asset.resourceName)
 
             when (asset.type) {
+
                 RiveAssetType.FONT -> {
+
                     val font = fontCache.getOrPut(asset.assetId) {
-                        riveWorker.decodeFont(bytes).also {
-                            println("[RiveFileManager] Decoded font: ${asset.assetId} -> $it")
-                        }
+                        FontAssetOps.decode(riveWorker, bytes)
                     }
-                    riveWorker.registerFont(asset.assetId, font)
-                    println("[RiveFileManager] Registered font: ${asset.assetId}")
+
+                    FontAssetOps.register(riveWorker, asset.assetId, font)
                 }
 
                 RiveAssetType.IMAGE -> {
+
                     val image = imageCache.getOrPut(asset.assetId) {
-                        riveWorker.decodeImage(bytes).also {
-                            println("[RiveFileManager] Decoded image: ${asset.assetId} -> $it")
-                        }
+                        ImageAssetOps.decode(riveWorker, bytes)
                     }
-                    riveWorker.registerImage(asset.assetId, image)
-                    println("[RiveFileManager] Registered image: ${asset.assetId}")
+
+                    ImageAssetOps.register(riveWorker, asset.assetId, image)
+                }
+
+                RiveAssetType.AUDIO -> {
+
+                    val audio = audioCache.getOrPut(asset.assetId) {
+                        AudioAssetOps.decode(riveWorker, bytes)
+                    }
+
+                    AudioAssetOps.register(riveWorker, asset.assetId, audio)
                 }
             }
 
@@ -121,7 +129,6 @@ class AndroidRiveFileManager(
         }
     }
 
-    // ── Build RiveFile from raw resource ──────────────────────────────
     private suspend fun buildRiveFile(fileName: String): RiveFile {
 
         val bytes = loadFileBytes(fileName)
@@ -133,44 +140,124 @@ class AndroidRiveFileManager(
             )
         ) {
             is Result.Success -> result.value
-            is Result.Error -> throw Exception(
-                "Failed to build RiveFile[$fileName]: ${result.throwable?.message}"
-            )
-            is Result.Loading -> throw Exception(
-                "Unexpected Loading state for RiveFile[$fileName]"
-            )
+            is Result.Error -> throw Exception(result.throwable?.message)
+            is Result.Loading -> throw Exception("Unexpected loading state")
         }
     }
 
-    // ── Load raw bytes from res/raw ────────────────────────────────────
-    private suspend fun loadFileBytes(fileName: String): ByteArray {
-        return withContext(Dispatchers.IO) {
+    private suspend fun loadFileBytes(fileName: String): ByteArray =
+        withContext(Dispatchers.IO) {
 
             val file = File(assetDir, fileName)
 
             require(file.exists()) {
-                "Asset file not found: ${file.absolutePath}"
+                "Asset not found: ${file.absolutePath}"
             }
 
             file.readBytes()
         }
-    }
 
-    // ── Getters ────────────────────────────────────────────────────────
     fun getFile(resourceName: String): RiveFile? = loadedFiles[resourceName]
 
-    override fun isFileLoaded(resourceName: String) = loadedFiles.containsKey(resourceName)
+    override fun isFileLoaded(resourceName: String) =
+        loadedFiles.containsKey(resourceName)
 
-    override fun getLoadState(resourceName: String): RiveLoadState =
+    override fun getLoadState(resourceName: String) =
         loadStates[resourceName] ?: RiveLoadState.Idle
 
     override fun clearAll() {
-//        fontCache.values.forEach { runCatching { it.release() } }
-//        imageCache.values.forEach { runCatching { it.release() } }
-        loadedFiles.clear()
-        loadStates.clear()
+
+        fontCache.values.forEach { FontAssetOps.delete(riveWorker, it) }
+        imageCache.values.forEach { ImageAssetOps.delete(riveWorker, it) }
+        audioCache.values.forEach { AudioAssetOps.delete(riveWorker, it) }
+
         fontCache.clear()
         imageCache.clear()
+        audioCache.clear()
+
+        loadedFiles.clear()
+        loadStates.clear()
         registeredAssets.clear()
+    }
+}
+
+interface RiveAssetOps<H> {
+
+    val tag: String
+    val label: String
+
+    suspend fun decode(worker: RiveWorker, bytes: ByteArray): H
+
+    fun register(worker: RiveWorker, key: String, handle: H)
+
+    fun unregister(worker: RiveWorker, key: String)
+
+    fun delete(worker: RiveWorker, handle: H)
+}
+
+
+object ImageAssetOps : RiveAssetOps<ImageHandle> {
+
+    override val tag = "Rive/Image"
+    override val label = "image"
+
+    override suspend fun decode(worker: RiveWorker, bytes: ByteArray): ImageHandle {
+        return worker.decodeImage(bytes)
+    }
+
+    override fun register(worker: RiveWorker, key: String, handle: ImageHandle) {
+        worker.registerImage(key, handle)
+    }
+
+    override fun unregister(worker: RiveWorker, key: String) {
+        worker.unregisterImage(key)
+    }
+
+    override fun delete(worker: RiveWorker, handle: ImageHandle) {
+        worker.deleteImage(handle)
+    }
+}
+
+object FontAssetOps : RiveAssetOps<FontHandle> {
+
+    override val tag = "Rive/Font"
+    override val label = "font"
+
+    override suspend fun decode(worker: RiveWorker, bytes: ByteArray): FontHandle {
+        return worker.decodeFont(bytes)
+    }
+
+    override fun register(worker: RiveWorker, key: String, handle: FontHandle) {
+        worker.registerFont(key, handle)
+    }
+
+    override fun unregister(worker: RiveWorker, key: String) {
+        worker.unregisterFont(key)
+    }
+
+    override fun delete(worker: RiveWorker, handle: FontHandle) {
+        worker.deleteFont(handle)
+    }
+}
+
+object AudioAssetOps : RiveAssetOps<AudioHandle> {
+
+    override val tag = "Rive/Audio"
+    override val label = "audio"
+
+    override suspend fun decode(worker: RiveWorker, bytes: ByteArray): AudioHandle {
+        return worker.decodeAudio(bytes)
+    }
+
+    override fun register(worker: RiveWorker, key: String, handle: AudioHandle) {
+        worker.registerAudio(key, handle)
+    }
+
+    override fun unregister(worker: RiveWorker, key: String) {
+        worker.unregisterAudio(key)
+    }
+
+    override fun delete(worker: RiveWorker, handle: AudioHandle) {
+        worker.deleteAudio(handle)
     }
 }

@@ -1,7 +1,7 @@
 package com.arjun.core.rive
 
 // ── Asset Types ────────────────────────────────────────────────────────
-enum class RiveAssetType { IMAGE, FONT }
+enum class RiveAssetType { IMAGE, FONT, AUDIO }
 
 // ── Asset Config ───────────────────────────────────────────────────────
 data class RiveAssetConfig(
