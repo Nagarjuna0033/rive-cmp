@@ -106,7 +106,7 @@ actual fun RiveComponent(
         )
     }
 
-    val controller = remember(instanceKey) { AndroidRiveController(vmi) }
+    val controller = remember(vmi) { AndroidRiveController(vmi) }
 
     LaunchedEffect(vmi, config) {
 
@@ -128,6 +128,9 @@ actual fun RiveComponent(
             controller.setNumber(k, v)
         }
 
+    }
+
+    LaunchedEffect(vmi) {
         config.triggers.forEach { trigger ->
             launch {
                 vmi.getTriggerFlow(trigger)
