@@ -61,7 +61,7 @@ actual fun RiveProvider(
         LocalRiveRuntime provides runtime
     ) {
         when (val state = loadState) {
-            is RiveLoadState.Loading -> {}
+            is RiveLoadState.Loading -> loadingContent()
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> content()
             is RiveLoadState.Idle -> loadingContent()
@@ -100,10 +100,13 @@ actual fun RiveComponent(
 
     val controller = remember(vmi) { AndroidRiveController(vmi) }
 
-    LaunchedEffect(vmi, config) {
-
+    // Notify controller ready once per VMI (not on every config change)
+    LaunchedEffect(vmi) {
         onControllerReady?.invoke(controller)
+    }
 
+    // Apply all properties when config changes
+    LaunchedEffect(vmi, config) {
         config.booleans.forEach { (k, v) ->
             controller.setBoolean(k, v)
         }
@@ -119,7 +122,6 @@ actual fun RiveComponent(
         config.numbers.forEach { (k, v) ->
             controller.setNumber(k, v)
         }
-
     }
 
     LaunchedEffect(vmi) {
