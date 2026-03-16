@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 
 /**
  * Keeps the last [maxRetained] visited tabs alive in composition.
@@ -47,6 +48,7 @@ fun TabRetainer(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .zIndex(if (isActive) 1f else 0f)
                         .graphicsLayer {
                             alpha = if (isActive) 1f else 0f
                         }
