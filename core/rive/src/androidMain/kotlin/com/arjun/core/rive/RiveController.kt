@@ -28,6 +28,10 @@ class AndroidRiveController(
             .onFailure { logError("setNumber($propertyName)", it) }
     }
 
+    override fun setColor(propertyName: String, value: Int) {
+        runCatching { vmi.setColor(propertyName, value) }
+            .onFailure { logError("setColor($propertyName)", it) }
+    }
     override fun fireTrigger(triggerName: String) {
         runCatching { vmi.fireTrigger(triggerName) }
             .onFailure { logError("fireTrigger($triggerName)", it) }

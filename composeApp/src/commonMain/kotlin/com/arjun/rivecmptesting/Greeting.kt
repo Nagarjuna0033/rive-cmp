@@ -36,12 +36,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.arjun.core.rive.PrimaryButtonParams
 import com.arjun.core.rive.RiveComponent
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveController
 import com.arjun.core.rive.RiveEventCallback
 import com.arjun.core.rive.RiveItemConfigs
+import com.arjun.core.rive.RiveItemConfigs.primaryButton
 import com.arjun.core.rive.RiveProps
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -62,36 +65,51 @@ val ColorTextSecondary = ColorGrayGray600
 @Composable
 fun PrimaryButton(contest: ContestItem) {
     var controller by remember { mutableStateOf<RiveController?>(null) }
-
     val scope = rememberCoroutineScope()
+
+    val config = remember {
+        primaryButton(
+            PrimaryButtonParams(
+                text = contest.name,
+                currency = 35,
+                showCoin = true,
+                showCurrencyText = true
+            )
+        )
+    }
+
+
     RiveComponent(
         resourceName = RiveConfigs.Files.CONTEST_BUTTON,
-        width = 150,
-        height = 75,
-        modifier = Modifier
-            .clickable { controller?.fireTrigger("Press") },
-        config = RiveItemConfigs.contestButton(
-            buttonText = contest.name,
-            showCash = contest.isCash,
-            showCoin = contest.isCoin,
-            showLock = contest.isLocked,
-            isNew = contest.isNew,
-        ),
+        width = 186,
+        height = 95,
+        config = config,
         instanceKey = contest.id.toString(),
-        viewModelName = "Button",
+        viewModelName = RiveProps.PrimaryButton.VIEW_MODEL_NAME,
         eventCallback = object : RiveEventCallback {
             override fun onTriggerAnimation(animationName: String) {
-                println("animationName = [$animationName]")
                 scope.launch {
 
-                    controller?.setString(
-                        RiveProps.ContestButton.BUTTON_TEXT,
-                        "Loading..."
-                    )
 
-                    delay(2000)
+                    delay(2500)
+                    controller?.fireTrigger(RiveProps.PrimaryButton.IDLE)
 
-                    controller?.setString(RiveProps.ContestButton.BUTTON_TEXT, contest.name)
+
+                    // ---------- COLORS ----------
+                    controller?.setColor(RiveProps.PrimaryButton.BG_COLOR, 0xFFFF0000.toInt())
+                    delay(2500)
+
+                    controller?.setColor(RiveProps.PrimaryButton.BG_COLOR, 0xFF00FF00.toInt())
+                    delay(2500)
+
+                    controller?.setColor(RiveProps.PrimaryButton.BG_COLOR, 0xFFFFBF0F.toInt())
+                    delay(2500)
+
+                    controller?.setColor(RiveProps.PrimaryButton.SHADOW_COLOR, 0xFF333333.toInt())
+                    delay(2500)
+
+                    controller?.setColor(RiveProps.PrimaryButton.SHADOW_COLOR, 0xFF000000.toInt())
+
                 }
             }
         },

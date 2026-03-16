@@ -9,11 +9,14 @@ interface RiveController {
     fun setNumber(propertyName: String, value: Float)
     fun fireTrigger(triggerName: String)
 
+    fun setColor(propertyName: String, value: Int)
+
     fun applyConfig(config: RiveItemConfig) {
         config.strings.forEach  { (k, v) -> setString(k, v) }
         config.enums.forEach    { (k, v) -> setEnum(k, v) }
         config.booleans.forEach { (k, v) -> setBoolean(k, v) }
         config.numbers.forEach  { (k, v) -> setNumber(k, v) }
+        config.colors.forEach   { (k, v) -> setColor(k, v) }
 //        config.triggers.forEach { fireTrigger(it) }
     }
 

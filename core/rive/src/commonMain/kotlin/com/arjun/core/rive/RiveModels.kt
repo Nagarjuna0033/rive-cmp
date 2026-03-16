@@ -22,7 +22,8 @@ data class RiveItemConfig(
     val enums: Map<String, String> = emptyMap(),
     val booleans: Map<String, Boolean> = emptyMap(),
     val numbers: Map<String, Float> = emptyMap(),
-    val triggers: List<String> = emptyList()
+    val triggers: List<String> = emptyList(),
+    val colors: Map<String, Int> = emptyMap()
 )
 
 // ── Load State ─────────────────────────────────────────────────────────
