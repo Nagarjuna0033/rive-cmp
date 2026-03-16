@@ -2,8 +2,6 @@ package com.arjun.core.rive
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -20,8 +18,6 @@ import app.rive.Alignment
 import app.rive.Fit
 import app.rive.Rive
 import app.rive.rememberRiveWorker
-import app.rive.rememberViewModelInstance
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import app.rive.runtime.kotlin.core.Rive as RiveCore
 
@@ -93,10 +89,6 @@ actual fun RiveComponent(
     val riveFile = remember(resourceName, fileManager) {
         fileManager?.getFile(resourceName)
     } ?: return
-
-//    val vmi = rememberViewModelInstance(
-//        file = riveFile,
-//    )
 
     val vmi = remember(resourceName, instanceKey) {
         runtime.getInstance(

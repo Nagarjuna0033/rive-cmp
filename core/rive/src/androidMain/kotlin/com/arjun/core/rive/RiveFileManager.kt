@@ -166,17 +166,16 @@ class AndroidRiveFileManager(
         loadStates[resourceName] ?: RiveLoadState.Idle
 
     override fun clearAll() {
-
+        loadedFiles.values.forEach { runCatching { it.close() } }
         fontCache.values.forEach { FontAssetOps.delete(riveWorker, it) }
         imageCache.values.forEach { ImageAssetOps.delete(riveWorker, it) }
         audioCache.values.forEach { AudioAssetOps.delete(riveWorker, it) }
 
+        loadedFiles.clear()
+        loadStates.clear()
         fontCache.clear()
         imageCache.clear()
         audioCache.clear()
-
-        loadedFiles.clear()
-        loadStates.clear()
         registeredAssets.clear()
     }
 }
