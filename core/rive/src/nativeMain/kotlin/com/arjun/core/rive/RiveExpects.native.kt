@@ -35,6 +35,10 @@ actual fun RiveProvider(
         loadState = fileManager.preloadAll(configs)
     }
 
+    DisposableEffect(fileManager) {
+        onDispose { fileManager.clearAll() }
+    }
+
     CompositionLocalProvider(
         LocalRiveFileManager provides fileManager
     ) {
@@ -62,16 +66,36 @@ actual fun RiveComponent(
 ) {
     val bridge = IOSRivePlatform.bridge ?: return
 
-    val handle = remember(resourceName) {
+    val handle = remember(resourceName, instanceKey) {
         bridge.createHandle(resourceName)
     } ?: return
 
     val controller = remember(handle) { IOSRiveController(handle) }
 
+    // Apply all properties in a single LaunchedEffect — matches Android pattern
     LaunchedEffect(handle, config) {
-        controller.applyConfig(config)
+
         onControllerReady?.invoke(controller)
-        // Listen for trigger events — matches Android's vmi.getTriggerFlow()
+
+        config.booleans.forEach { (k, v) ->
+            controller.setBoolean(k, v)
+        }
+
+        config.strings.forEach { (k, v) ->
+            controller.setString(k, v)
+        }
+
+        config.enums.forEach { (k, v) ->
+            controller.setEnum(k, v)
+        }
+
+        config.numbers.forEach { (k, v) ->
+            controller.setNumber(k, v)
+        }
+    }
+
+    // Trigger listeners in separate LaunchedEffect — matches Android pattern
+    LaunchedEffect(handle) {
         config.triggers.forEach { trigger ->
             handle.addTriggerListener(trigger) {
                 eventCallback?.onTriggerAnimation(trigger)
@@ -79,33 +103,17 @@ actual fun RiveComponent(
         }
     }
 
-    // Separate LaunchedEffects per property type — matches Android pattern
-    LaunchedEffect(config.strings) {
-        config.strings.forEach { (k, v) -> controller.setString(k, v) }
-    }
-
-    LaunchedEffect(config.enums) {
-        config.enums.forEach { (k, v) -> controller.setEnum(k, v) }
-    }
-
-    LaunchedEffect(config.booleans) {
-        config.booleans.forEach { (k, v) -> controller.setBoolean(k, v) }
-    }
-
-    LaunchedEffect(config.numbers) {
-        config.numbers.forEach { (k, v) -> controller.setNumber(k, v) }
-    }
-
     DisposableEffect(handle) {
         onDispose { handle.destroy() }
     }
 
-    // Resolve width/height — matches Android pattern
     val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()
 
-    val riveModifier = modifier
-        .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
-        .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
+    val riveModifier = remember(resolvedWidth, height) {
+        modifier
+            .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
+            .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
+    }
 
     UIKitView(
         factory = { handle.getUIView() },
