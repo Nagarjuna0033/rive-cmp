@@ -62,24 +62,15 @@ class SwiftRiveHandle: IOSRiveHandle {
 
     override func setStringProperty(name: String, value: String) {
         executeWithVMI { [weak self] in
-            guard let self, let vmi = self.boundVMI else {
-                print("[SwiftRiveHandle] String SKIPPED (no self/vmi): \(name) = \(value)")
-                return
-            }
-            let isMainThread = Thread.isMainThread
-            // Set VMI property (keeps data binding in sync)
+            guard let self, let vmi = self.boundVMI else { return }
             if let prop = vmi.stringProperty(fromPath: name) {
                 prop.value = value
-                print("[SwiftRiveHandle] VMI prop set: \(name) = \(value) [main=\(isMainThread)]")
+                // Force a render frame so the visual picks up the change
+                // (display link may have paused after animation completed)
+                self.riveViewModel.riveView?.advance(delta: 0)
+                print("[SwiftRiveHandle] String set: \(name) = \(value)")
             } else {
-                print("[SwiftRiveHandle] VMI prop NOT FOUND: \(name)")
-            }
-            // Set text run (immediate visual update via state machine)
-            do {
-                try self.riveViewModel.setTextRunValue(name, textValue: value)
-                print("[SwiftRiveHandle] TextRun set OK: \(name) = \(value)")
-            } catch {
-                print("[SwiftRiveHandle] TextRun FAILED: \(name) = \(value), error: \(error)")
+                print("[SwiftRiveHandle] String property not found: \(name)")
             }
         }
     }
@@ -89,6 +80,7 @@ class SwiftRiveHandle: IOSRiveHandle {
             guard let self, let vmi = self.boundVMI else { return }
             if let prop = vmi.enumProperty(fromPath: name) {
                 prop.value = value
+                self.riveViewModel.riveView?.advance(delta: 0)
                 print("[SwiftRiveHandle] Enum set: \(name) = \(value)")
             } else {
                 print("[SwiftRiveHandle] Enum property not found: \(name)")
@@ -101,6 +93,7 @@ class SwiftRiveHandle: IOSRiveHandle {
             guard let self, let vmi = self.boundVMI else { return }
             if let prop = vmi.booleanProperty(fromPath: name) {
                 prop.value = value
+                self.riveViewModel.riveView?.advance(delta: 0)
                 print("[SwiftRiveHandle] Boolean set: \(name) = \(value)")
             } else {
                 print("[SwiftRiveHandle] Boolean property not found: \(name)")
@@ -113,6 +106,7 @@ class SwiftRiveHandle: IOSRiveHandle {
             guard let self, let vmi = self.boundVMI else { return }
             if let prop = vmi.numberProperty(fromPath: name) {
                 prop.value = value
+                self.riveViewModel.riveView?.advance(delta: 0)
                 print("[SwiftRiveHandle] Number set: \(name) = \(value)")
             } else {
                 print("[SwiftRiveHandle] Number property not found: \(name)")
