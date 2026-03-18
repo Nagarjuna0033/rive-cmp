@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.arjun.core.rive.PrimaryButtonParams
 import com.arjun.core.rive.RiveComponent
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveController
@@ -56,46 +57,134 @@ val ColorBrandLight = ColorGrayGray50
 val ColorSurfaceLow = ColorGrayGray50
 val ColorTextSecondary = ColorGrayGray600
 
+// ── Separate data per tab ─────────────────────────────────────────────────────
+
+val homeTabData = listOf(
+    ContestServerModel(
+        id = 1,
+        name = "Mega Ludo",
+        playerCount = "2.4K",
+        prizePool = "5000",
+        currencyType = CurrencyType.Coin,
+        cta = ContestCta(text = "Play Now", locked = false, cash = false, coin = true, isNew = true)
+    ),
+    ContestServerModel(
+        id = 2,
+        name = "Battle Chess",
+        playerCount = "1.1K",
+        prizePool = "1200",
+        currencyType = CurrencyType.Cash,
+        cta = ContestCta(text = "Locked", locked = true, cash = false, coin = true, isNew = true)
+    )
+)
+
+val contestsTabData = listOf(
+    ContestServerModel(
+        id = 3,
+        name = "Snake Arena",
+        playerCount = "3.2K",
+        prizePool = "8000",
+        currencyType = CurrencyType.Cash,
+        cta = ContestCta(text = "Join Now", locked = false, cash = true, coin = false, isNew = false)
+    ),
+    ContestServerModel(
+        id = 4,
+        name = "Ludo Masters",
+        playerCount = "980",
+        prizePool = "2500",
+        currencyType = CurrencyType.Coin,
+        cta = ContestCta(text = "Play", locked = false, cash = false, coin = true, isNew = true)
+    )
+)
+
+
+// ── ContestLargeCards now accepts data + a tab tag for unique Rive keys ────────
 
 @Composable
-fun PrimaryButton(contest: ContestItem) {
-    var controller by remember { mutableStateOf<RiveController?>(null) }
+fun ContestLargeCards(
+    contests: List<ContestServerModel> = homeTabData,
+    // tabTag makes every Rive instanceKey unique across tabs.
+    // Without this, tab 0 and tab 1 would produce the same key for the
+    // same contest id, causing Rive to reuse the same animation instance.
+    tabTag: String = "home"
+) {
+    val listState = rememberLazyListState()
 
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        LazyColumn(
+            state = listState,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(
+                items = contests,
+                key = { "$tabTag-${it.id}" }
+            ) { contest ->
+                LargeCardContent(
+                    name = contest.name,
+                    gameNameKey = contest.name,
+                    playerCount = contest.playerCount,
+                    prizePool = contest.prizePool,
+                    currencyType = contest.currencyType,
+                    onClick = {},
+                ) {
+                    // Pass tabTag so the Rive instanceKey is unique per tab
+                    PrimaryButton(
+                        contest = contest.toContestItem(),
+                        tabTag = tabTag
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── PrimaryButton accepts tabTag to build a unique instanceKey ────────────────
+
+@Composable
+fun PrimaryButton(
+    contest: ContestItem,
+    tabTag: String = "home"
+) {
+    var controller by remember { mutableStateOf<RiveController?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
     RiveComponent(
-        resourceName = RiveConfigs.Files.CONTEST_BUTTON,
+        resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
+        // Unique key = tabTag + contest id → no sharing across tabs
+        instanceKey = "$tabTag-${contest.id}",
         width = 150,
         height = 75,
-        modifier = Modifier
-            .clickable { controller?.fireTrigger("Press") },
-        config = RiveItemConfigs.contestButton(
-            buttonText = contest.name,
-            showCash = contest.isCash,
-            showCoin = contest.isCoin,
-            showLock = contest.isLocked,
-            isNew = contest.isNew,
+        modifier = Modifier.clickable { controller?.fireTrigger("Press") },
+        config = RiveItemConfigs.primaryButton(
+            PrimaryButtonParams(
+                text = contest.name,
+                showCash = contest.isCash,
+                showLock = contest.isLocked,
+                showCoin = contest.isCoin,
+                isLoading = isLoading,
+                isEnabled = true,
+                buttonColor = "Yellow"
+            )
         ),
-        instanceKey = contest.id.toString(),
         viewModelName = "Button",
         eventCallback = object : RiveEventCallback {
             override fun onTriggerAnimation(animationName: String) {
-                println("animationName = [$animationName]")
                 scope.launch {
-
-                    controller?.setString(
-                        RiveProps.ContestButton.BUTTON_TEXT,
-                        "Loading..."
-                    )
-
+                    isLoading = true
                     delay(2000)
-
-                    controller?.setString(RiveProps.ContestButton.BUTTON_TEXT, contest.name)
+                    isLoading = false
                 }
             }
         },
         onControllerReady = { controller = it }
     )
 }
+
+
 
 data class ContestServerModel(
     val id: Int,
@@ -124,36 +213,6 @@ data class ContestItem(
     val isNew: Boolean = false
 )
 
-val dummyServerData = listOf(
-    ContestServerModel(
-        id = 1,
-        name = "Mega Ludo",
-        playerCount = "2.4K",
-        prizePool = "5000",
-        currencyType = CurrencyType.Coin,
-        cta = ContestCta(
-            text = "Play Now",
-            locked = false,
-            cash = false,
-            coin = true,
-            isNew = true
-        )
-    ),
-    ContestServerModel(
-        id = 2,
-        name = "Battle Chess",
-        playerCount = "1.1K",
-        prizePool = "1200",
-        currencyType = CurrencyType.Cash,
-        cta = ContestCta(
-            text = "Locked",
-            locked = true,
-            cash = false,
-            coin = true,
-            isNew = true
-        )
-    )
-)
 
 fun ContestServerModel.toContestItem(): ContestItem {
     return ContestItem(
@@ -164,43 +223,6 @@ fun ContestServerModel.toContestItem(): ContestItem {
         isLocked = cta.locked,
         isNew = cta.isNew
     )
-}
-
-@Composable
-fun ContestLargeCards() {
-
-    var contests by remember {
-        mutableStateOf(dummyServerData)
-    }
-
-    val listState = rememberLazyListState()
-
-
-    Column (modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally){
-
-        LazyColumn(
-            state = listState,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-
-            items(
-                items = contests,
-                key = { it.id }
-            ) { contest ->
-                LargeCardContent(
-                    name = contest.name,
-                    gameNameKey = contest.name,
-                    playerCount = contest.playerCount,
-                    prizePool = contest.prizePool,
-                    currencyType = contest.currencyType,
-                    onClick = {},
-                ) {
-                    PrimaryButton(contest.toContestItem())
-                }
-
-            }
-        }
-    }
 }
 
 enum class CurrencyType(val value: String) {

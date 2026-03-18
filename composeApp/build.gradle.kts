@@ -50,6 +50,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
+            implementation("androidx.navigation:navigation-compose:2.9.7")
             api(projects.core.rive)
         }
         commonTest.dependencies {

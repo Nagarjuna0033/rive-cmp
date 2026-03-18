@@ -5,67 +5,48 @@ object RiveConfigs {
 
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
-        const val CONTEST_BUTTON    = "primary_button.riv"
-        const val HOME_BANNER       = "home_banner.riv"
-        const val PRIZE_TRACK       = "prize_track.riv"
-        const val CHEST             = "chest.riv"
+        const val PRIMARY_BUTTON    = "primary_button_v1.2.riv"
     }
 
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
     object AssetIds {
         const val FONT_OUTFIT       = "Outfit-4229794"
-        const val IMAGE_COIN        = "coinIcon-5293203"
-        const val IMAGE_CASH        = "cashIcon-5293204"
-        const val IMAGE_LOCK        = "lockIcon-5293216"
+        const val BUTTON_CLICK      = "Button Click-1342551"
+        const val IMAGE_COIN        = "Coin Icon-5293203"
+        const val IMAGE_CASH        = "Cash Icon-5293204"
+        const val IMAGE_LOCK        = "Lock Icon-5293216"
+
+        const val IMAGE_AD = "Ad Icon-5654378.webp"
     }
 
     // ── Raw resource names (without extension) ─────────────────────────
     object ResourceNames {
-        const val FONT_OUTFIT = "outfit.ttf"
-        const val IMAGE_IC_COIN     = "coin.webp"
-        const val IMAGE_IC_CASH     = "cash.webp"
-        const val IMAGE_IC_LOCK      = "lock.webp"
+        const val FONT_OUTFIT = "rive-outfit.ttf"
+        const val IMAGE_IC_COIN     = "rive-cash.webp"
+        const val IMAGE_IC_CASH     = "rive-coin.webp"
+        const val IMAGE_IC_LOCK      = "rive-lock.webp"
+        const val AUDIO = "rive-button-audio.flac"
+
+        const val IMAGE_IC_AD = "rive-lock.webp"
     }
 
     // ── Per-file configs ───────────────────────────────────────────────
     val contestButton = RiveFileConfig(
-        resourceName = Files.CONTEST_BUTTON,
+        resourceName = Files.PRIMARY_BUTTON,
         assets = listOf(
             RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
             RiveAssetConfig(AssetIds.IMAGE_COIN,    ResourceNames.IMAGE_IC_COIN, RiveAssetType.IMAGE),
             RiveAssetConfig(AssetIds.IMAGE_CASH,    ResourceNames.IMAGE_IC_CASH, RiveAssetType.IMAGE),
             RiveAssetConfig(AssetIds.IMAGE_LOCK,     ResourceNames.IMAGE_IC_LOCK,  RiveAssetType.IMAGE),
+            RiveAssetConfig(AssetIds.IMAGE_AD, ResourceNames.IMAGE_IC_AD, RiveAssetType.IMAGE),
+            RiveAssetConfig(AssetIds.BUTTON_CLICK, ResourceNames.AUDIO, RiveAssetType.AUDIO)
         )
     )
 
-    val homeBanner = RiveFileConfig(
-        resourceName = Files.HOME_BANNER,
-        assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
-        )
-    )
-
-    val prizeTrack = RiveFileConfig(
-        resourceName = Files.PRIZE_TRACK,
-        assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
-            RiveAssetConfig(AssetIds.IMAGE_COIN,    ResourceNames.IMAGE_IC_COIN, RiveAssetType.IMAGE),
-        )
-    )
-
-    val chest = RiveFileConfig(
-        resourceName = Files.CHEST,
-        assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
-        )
-    )
 
     // ── Preload everything at app start ────────────────────────────────
     val allConfigs = listOf(
         contestButton,
-//        homeBanner,
-//        prizeTrack,
-//        chest,
     )
 }
 
@@ -73,73 +54,87 @@ object RiveConfigs {
 
 object RiveProps {
 
-    object ContestButton {
+    object PrimaryButton {
 
+        const val VIEW_MODEL_NAME = "Button"
+
+        // numbers
+        const val BUTTON_WIDTH = "Button Width"
+        const val CURRENCY_TEXT = "Currency Text"
+
+        // strings
         const val BUTTON_TEXT = "Button Text"
-        const val TRAILING_TEXT = "Trailing Text"
 
-        const val RIGHT_CASH = "Right Cash"
-        const val RIGHT_COIN = "Right Coin"
-        const val SHOW_LOCK_ICON = "Show Lock Icon"
-        const val NEW_TAG = "New Tag"
+        // enums
 
-        const val BUTTON_VARIANT = "Button Variant"
+        const val BUTTON_COLOR = "Button Color"
 
-        const val IS_LOADING = "Is Loading"
-        const val IS_ENABLED = "Is Enabled"
+        // booleans
+        const val IS_LOADING = "Loading"
 
-        const val BUTTON_WIDTH = "buttonWidth"
+        const val IS_ENABLED = "Enabled"
+        const val RIGHT_CASH_DISPLAY = "Right Cash Display"
+        const val RIGHT_COIN_DISPLAY = "Right Coin Display"
+        const val LOCK_ICON_DISPLAY = "Lock Icon Display"
+        const val AD_ICON_DISPLAY = "Ad Icon Display"
+        const val CURRENCY_TEXT_DISPLAY = "Currency Text Display"
 
-        const val PRESS_TRIGGER = "Press"
+        // triggers
+        const val PRESS = "Press"
+        const val LOADING = "Loading"
+        const val WIGGLE = "Wiggle"
     }
-
 }
 
+
+data class PrimaryButtonParams(
+    val text: String,
+
+    val currency: String = "",
+    val width: Float = 0f,
+    val buttonColor: String,
+
+    val showCash: Boolean = false,
+    val showCoin: Boolean = false,
+    val showLock: Boolean = false,
+    val showAd: Boolean = false,
+    val showCurrencyText: Boolean = false,
+
+    val isLoading: Boolean = false,
+    val isEnabled: Boolean = false,
+)
 object RiveItemConfigs {
 
-    // Contest button — dynamic
-    fun contestButton(
-        buttonText: String,
-        showCash: Boolean = false,
-        showCoin: Boolean = false,
-        showLock: Boolean = false,
-        isNew: Boolean = false,
-    ) = RiveItemConfig(
+    fun primaryButton(params: PrimaryButtonParams) = RiveItemConfig(
+
         strings = mapOf(
-            RiveProps.ContestButton.BUTTON_TEXT to buttonText
+            RiveProps.PrimaryButton.BUTTON_TEXT to params.text,
+            RiveProps.PrimaryButton.CURRENCY_TEXT to params.currency
         ),
+
+//        numbers = mapOf(
+//            RiveProps.PrimaryButton.BUTTON_WIDTH to params.width,
+//        ),
+
+        booleans = mapOf(
+            RiveProps.PrimaryButton.IS_LOADING to params.isLoading,
+            RiveProps.PrimaryButton.IS_ENABLED to params.isEnabled
+        ),
+
         enums = mapOf(
-            RiveProps.ContestButton.RIGHT_CASH to if (showCash) "Show" else "Hide",
-            RiveProps.ContestButton.RIGHT_COIN to if (showCoin) "Show" else "Hide",
-            RiveProps.ContestButton.SHOW_LOCK_ICON to if (showLock) "Show" else "Hide",
-            RiveProps.ContestButton.NEW_TAG to if (isNew) "Show" else "Hide",
+            RiveProps.PrimaryButton.RIGHT_CASH_DISPLAY to if (params.showCash) "Show" else "Hide",
+            RiveProps.PrimaryButton.RIGHT_COIN_DISPLAY to if (params.showCoin) "Show" else "Hide",
+            RiveProps.PrimaryButton.LOCK_ICON_DISPLAY to if (params.showLock) "Show" else "Hide",
+            RiveProps.PrimaryButton.AD_ICON_DISPLAY to if (params.showAd) "Show" else "Hide",
+
+            RiveProps.PrimaryButton.CURRENCY_TEXT_DISPLAY to if (params.showCurrencyText) "Show" else "Hide",
+            RiveProps.PrimaryButton.BUTTON_COLOR to params.buttonColor
         ),
-        numbers = mapOf(
-            RiveProps.ContestButton.BUTTON_WIDTH to 150f
-        ),
+
         triggers = listOf(
-            RiveProps.ContestButton.PRESS_TRIGGER
+            RiveProps.PrimaryButton.PRESS,
+            RiveProps.PrimaryButton.LOADING,
+            RiveProps.PrimaryButton.WIGGLE,
         )
-    )
-
-    // Presets
-    val pvpCashButton = RiveItemConfig(
-        strings = mapOf("Button Text" to "PvP"),
-        enums = mapOf("Right Cash" to "Show")
-    )
-
-    val pvpCoinButton = RiveItemConfig(
-        strings = mapOf("Button Text" to "PvP"),
-        enums = mapOf("Right Coin" to "Show")
-    )
-
-    val practiceButton = RiveItemConfig(
-        strings = mapOf("Button Text" to "Practice"),
-        enums = mapOf("Right Coin" to "Show")
-    )
-
-    val lockedButton = RiveItemConfig(
-        strings = mapOf("Button Text" to "Locked"),
-        enums = mapOf("Show Lock Icon" to "Show")
     )
 }
