@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -67,6 +68,9 @@ internal fun PoolableRiveView(
     // Settled-frame optimization: skip drawing when the state machine is idle.
     var isSettled by remember { mutableStateOf(false) }
 
+    // Hide TextureView until the first Rive frame draws to avoid grey flash.
+    var hasDrawnFirstFrame by remember { mutableStateOf(false) }
+
     // Bind view model instance to the state machine when provided.
     LaunchedEffect(stateMachineHandle, viewModelInstance) {
         viewModelInstance ?: return@LaunchedEffect
@@ -108,6 +112,7 @@ internal fun PoolableRiveView(
 
                 riveWorker.advanceStateMachine(stateMachineHandle, deltaTime)
                 riveWorker.draw(artboardHandle, stateMachineHandle, surface, fit, backgroundColor)
+                if (!hasDrawnFirstFrame) hasDrawnFirstFrame = true
             }
         }
     }
@@ -140,6 +145,9 @@ internal fun PoolableRiveView(
         }
     }
 
+    // Hide the TextureView until the first Rive frame draws to prevent grey flash.
+    val viewModifier = if (hasDrawnFirstFrame) modifier else modifier.graphicsLayer { alpha = 0f }
+
     AndroidView(
         factory = { context ->
             TextureView(context).apply {
@@ -160,11 +168,13 @@ internal fun PoolableRiveView(
                 )
             }
         },
-        modifier = modifier,
+        modifier = viewModifier,
         onReset = { textureView ->
             // Called when the AndroidView is recycled in a LazyColumn.
             // The TextureView and its SurfaceTexture remain alive (onSurfaceTextureDestroyed
             // returns false). Destroy old wrapper if stale, then re-wrap.
+            // Hide until new content draws to prevent showing stale content from previous item.
+            hasDrawnFirstFrame = false
             val existingTexture = textureView.surfaceTexture
             if (existingTexture != null) {
                 destroyCurrentSurface()

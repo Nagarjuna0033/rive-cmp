@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 
 /**
  * Retains Rive-heavy composable content across tab switches using LRU eviction.
@@ -71,19 +72,27 @@ fun RiveRetainer(
     // (before SideEffect runs), so we never render a blank frame.
     val renderList = if (activeTab in lruOrder) lruOrder else listOf(activeTab) + lruOrder
 
-    // Compose all retained tabs.
-    renderList.forEach { tabIndex ->
+    // Compose hidden tabs FIRST (behind in z-order), then active tab LAST (on top).
+    // This ensures the active tab receives all touch events. Hidden tabs also block
+    // pointer input explicitly to prevent invisible buttons from intercepting taps.
+    renderList.filter { it != activeTab }.forEach { tabIndex ->
         key(tabIndex) {
-            val isActive = tabIndex == activeTab
             Box(
-                modifier = if (isActive) {
-                    Modifier
-                } else {
-                    Modifier.graphicsLayer { alpha = 0f }
-                },
+                modifier = Modifier
+                    .graphicsLayer { alpha = 0f }
+                    .pointerInput(Unit) {
+                        // Consume all pointer events so hidden tabs never intercept touches.
+                        awaitPointerEventScope { while (true) { awaitPointerEvent() } }
+                    },
             ) {
-                tabs[tabIndex](isActive)
+                tabs[tabIndex](false)
             }
+        }
+    }
+    // Active tab last — on top in z-order, receives all touches.
+    key(activeTab) {
+        Box {
+            tabs[activeTab](true)
         }
     }
 }
