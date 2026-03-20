@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.Alignment
 import app.rive.Fit
-import app.rive.Rive
 import app.rive.rememberRiveWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -206,7 +205,7 @@ actual fun RiveComponent(
         }
     }
 
-    Rive(
+    PoolableRiveView(
         file = riveFile,
         viewModelInstance = vmi,
         fit = Fit.Contain(),

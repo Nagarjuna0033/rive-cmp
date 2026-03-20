@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveProvider
+import com.arjun.core.rive.RiveRetainer
 
 
 @Composable
@@ -106,10 +107,14 @@ private fun MainScreen(onNotificationClick: () -> Unit) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            when (selectedTab) {
-                0 -> ContestLargeCards(contests = homeTabData,     tabTag = "home")
-                1 -> ContestLargeCards(contests = contestsTabData, tabTag = "contests")
-            }
+            RiveRetainer(
+                activeTab = selectedTab,
+                maxRetained = 3,
+                tabs = listOf(
+                    { _ -> ContestLargeCards(contests = homeTabData, tabTag = "home") },
+                    { _ -> ContestLargeCards(contests = contestsTabData, tabTag = "contests") },
+                )
+            )
         }
     }
 }
