@@ -57,12 +57,17 @@ actual fun RiveComponent(
     resourceName: String,
     instanceKey: String,
     viewModelName: String,
-    height: Int?,
-    width: Int?,
+//    height: Int?,
+//    width: Int?,
     modifier: Modifier,
     config: RiveItemConfig,
     eventCallback: RiveEventCallback?,
-    onControllerReady: ((RiveController) -> Unit)?
+    onControllerReady: ((RiveController) -> Unit)?,
+    alignment: RiveAlignment,
+    autoPlay: Boolean,
+    artboardName: String?,
+    fit: RiveFit,
+    stateMachineName: String?,
 ) {
     val bridge = IOSRivePlatform.bridge ?: return
 
@@ -109,16 +114,8 @@ actual fun RiveComponent(
         onDispose { handle.destroy() }
     }
 
-    val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()
-
-    val riveModifier = remember(resolvedWidth, height) {
-        modifier
-            .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
-            .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
-    }
-
     UIKitView(
         factory = { handle.getUIView() },
-        modifier = riveModifier
+        modifier = modifier,
     )
 }

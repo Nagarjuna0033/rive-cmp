@@ -118,12 +118,17 @@ actual fun RiveComponent(
     resourceName: String,
     instanceKey: String,
     viewModelName: String,
-    height: Int?,
-    width: Int?,
+//    height: Int?,
+//    width: Int?,
     modifier: Modifier,
     config: RiveItemConfig,
     eventCallback: RiveEventCallback?,
-    onControllerReady: ((RiveController) -> Unit)?
+    onControllerReady: ((RiveController) -> Unit)?,
+    alignment: RiveAlignment,
+    autoPlay: Boolean,
+    artboardName: String?,
+    fit: RiveFit,
+    stateMachineName: String?,
 ) {
 
     val componentStart = remember { android.os.SystemClock.elapsedRealtime() }
@@ -193,15 +198,6 @@ actual fun RiveComponent(
         }
     }
 
-    val resolvedWidth = width ?: config.numbers["buttonWidth"]?.toInt()
-
-    val riveModifier = remember(resolvedWidth, height) {
-        modifier
-            .then(resolvedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
-            .then(height?.let { Modifier.height(it.dp) } ?: Modifier)
-    }
-
-    // First frame render timing
     LaunchedEffect(vmi) {
         val start = android.os.SystemClock.elapsedRealtime()
 
@@ -212,9 +208,8 @@ actual fun RiveComponent(
 
     Rive(
         file = riveFile,
-        modifier = riveModifier,
         viewModelInstance = vmi,
-        fit = Fit.Contain()
+        fit = Fit.Contain(),
     )
 
     LaunchedEffect(Unit) {
