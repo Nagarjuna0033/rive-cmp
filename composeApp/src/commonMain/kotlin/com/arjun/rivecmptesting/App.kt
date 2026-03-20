@@ -21,9 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveProvider
 import com.arjun.core.rive.RiveRetainer
@@ -53,23 +50,18 @@ private object Routes {
 
 @Composable
 fun AppNav() {
-    val navController = rememberNavController()
+    var currentRoute by remember { mutableStateOf(Routes.MAIN) }
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.MAIN
-    ) {
-        composable(Routes.MAIN) {
-            MainScreen(
-                onNotificationClick = {
-                    navController.navigate(Routes.NOTIFICATIONS)
-                }
-            )
-        }
+    // MainScreen is ALWAYS in composition — never destroyed on navigation.
+    // This preserves all TextureViews and Rive surfaces across screen transitions.
+    Box {
+        MainScreen(
+            onNotificationClick = { currentRoute = Routes.NOTIFICATIONS }
+        )
 
-        composable(Routes.NOTIFICATIONS) {
+        if (currentRoute == Routes.NOTIFICATIONS) {
             NotificationsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { currentRoute = Routes.MAIN }
             )
         }
     }
