@@ -6,6 +6,8 @@ object RiveConfigs {
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
         const val PRIMARY_BUTTON    = "primary_button_v1.2.riv"
+
+        const val DOWNLOAD_BUTTON = "download_button.riv"
     }
 
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
@@ -17,6 +19,8 @@ object RiveConfigs {
         const val IMAGE_LOCK        = "Lock Icon-5293216"
 
         const val IMAGE_AD = "Ad Icon-5654378.webp"
+
+        const val FONT = "Inter-995149"
     }
 
     // ── Raw resource names (without extension) ─────────────────────────
@@ -43,10 +47,17 @@ object RiveConfigs {
         )
     )
 
+    val downloadButton = RiveFileConfig(
+        resourceName = Files.DOWNLOAD_BUTTON,
+        assets = listOf(
+            RiveAssetConfig(AssetIds.FONT, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT)
+        )
+    )
 
     // ── Preload everything at app start ────────────────────────────────
     val allConfigs = listOf(
         contestButton,
+        downloadButton
     )
 }
 
