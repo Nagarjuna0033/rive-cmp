@@ -72,8 +72,6 @@ internal fun PoolableRiveView(
         viewModelInstance ?: return@LaunchedEffect
         riveWorker.bindViewModelInstance(stateMachineHandle, viewModelInstance.instanceHandle)
         isSettled = false
-        // Unsettle when VMI properties change so the draw loop renders updates.
-        viewModelInstance.dirtyFlow.collect { isSettled = false }
     }
 
     // Listen for settled events from the state machine.
