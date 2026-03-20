@@ -207,6 +207,7 @@ actual fun RiveComponent(
 
     PoolableRiveView(
         file = riveFile,
+        modifier = modifier,
         viewModelInstance = vmi,
         fit = Fit.Contain(),
     )
