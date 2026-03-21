@@ -31,10 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -160,22 +156,8 @@ fun PrimaryButton(
 
     RiveComponent(
         resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
-        // Unique key = tabTag + contest id → no sharing across tabs
         instanceKey = "$tabTag-${contest.id}",
-        modifier = Modifier.height(50.dp).width(150.dp)
-            .pointerInput(controller) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    println("RIVE_DEBUG: PointerDown on ${contest.id} at ${down.position}")
-                    val up = waitForUpOrCancellation()
-                    if (up != null) {
-                        println("RIVE_DEBUG: PointerUp on ${contest.id} → fireTrigger(Press), controller=${controller != null}")
-                        controller?.fireTrigger("Press")
-                    } else {
-                        println("RIVE_DEBUG: PointerCancelled on ${contest.id}")
-                    }
-                }
-            },
+        modifier = Modifier.height(50.dp).width(150.dp),
         config = RiveItemConfigs.primaryButton(
                 PrimaryButtonParams(
                     text = contest.name,
