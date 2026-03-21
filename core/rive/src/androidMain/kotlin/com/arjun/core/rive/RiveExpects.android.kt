@@ -1,11 +1,7 @@
 package com.arjun.core.rive
 
 import android.annotation.SuppressLint
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -14,14 +10,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import app.rive.Alignment
 import app.rive.Fit
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
@@ -29,8 +20,6 @@ import app.rive.rememberRiveWorker
 import com.arjun.core.rive.utils.RiveAlignment
 import com.arjun.core.rive.utils.RiveFit
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.rive.runtime.kotlin.core.Rive as RiveCore
@@ -44,14 +33,10 @@ actual fun RiveProvider(
     content: @Composable () -> Unit
 ) {
 
-    val totalStart = remember { android.os.SystemClock.elapsedRealtime() }
-
     val context = LocalContext.current
 
     remember(context) {
-        RivePerfLogger.measure("RiveCore.init") {
-            RiveCore.init(context)
-        }
+        RiveCore.init(context)
     }
 
     val riveWorker = rememberRiveWorker()
@@ -63,40 +48,29 @@ actual fun RiveProvider(
     }
 
     val fileManager = remember(riveWorker) {
-        RivePerfLogger.measure("Create FileManager") {
-            AndroidRiveFileManager(context, riveWorker)
-        }
+        AndroidRiveFileManager(context, riveWorker)
     }
 
     val runtime = remember(fileManager) {
-        RivePerfLogger.measure("Create Runtime") {
-            RiveRuntime(fileManager)
-        }
+        RiveRuntime(fileManager)
     }
 
     var loadState by remember { mutableStateOf<RiveLoadState>(RiveLoadState.Loading) }
 
     LaunchedEffect(configs) {
-        val preloadStart = android.os.SystemClock.elapsedRealtime()
-
-        loadState = RivePerfLogger.measureSuspend("preloadAll") {
-            withContext(kotlinx.coroutines.Dispatchers.Default) {
+        loadState = try {
+            withContext(Dispatchers.Default) {
                 fileManager.preloadAll(configs)
             }
+        } catch (e: Exception) {
+            RiveLoadState.Error(e.message ?: "Unknown error during preload")
         }
-
-        RivePerfLogger.log("TOTAL preload pipeline", preloadStart)
     }
 
     DisposableEffect(runtime) {
         onDispose {
-            RivePerfLogger.measure("runtime.clear") {
-                runtime.clear()
-            }
-
-            RivePerfLogger.measure("fileManager.clearAll") {
-                fileManager.clearAll()
-            }
+            runtime.clear()
+            fileManager.clearAll()
         }
     }
 
@@ -108,8 +82,6 @@ actual fun RiveProvider(
             is RiveLoadState.Loading -> loadingContent()
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> {
-                RivePerfLogger.log("TOTAL provider setup", totalStart)
-                android.util.Log.d("RIVE_BATCH", "Creating RiveBatchSurface (single shared TextureView)")
                 RiveBatchSurface(
                     riveWorker = riveWorker,
                     modifier = Modifier.navigationBarsPadding(),
@@ -128,8 +100,6 @@ actual fun RiveComponent(
     resourceName: String,
     instanceKey: String,
     viewModelName: String,
-//    height: Int?,
-//    width: Int?,
     modifier: Modifier,
     config: RiveItemConfig,
     eventCallback: RiveEventCallback?,
@@ -142,142 +112,84 @@ actual fun RiveComponent(
     batched: Boolean,
 ) {
 
-    val componentStart = remember { android.os.SystemClock.elapsedRealtime() }
-
     val fileManager = LocalRiveFileManager.current as? AndroidRiveFileManager
     val runtime = LocalRiveRuntime.current ?: return
 
     val riveFile = remember(resourceName, fileManager) {
-        RivePerfLogger.measure("getFile: $resourceName") {
-            fileManager?.getFile(resourceName)
-        }
+        fileManager?.getFile(resourceName)
     } ?: return
 
     val vmi = remember(resourceName, instanceKey) {
-        RivePerfLogger.measure("getInstance: $resourceName-$instanceKey") {
-            runtime.getInstance(
-                resourceName = resourceName,
-                instanceKey = instanceKey,
-                viewModelName = viewModelName,
-            )
-        }
+        runtime.getInstance(
+            resourceName = resourceName,
+            instanceKey = instanceKey,
+            viewModelName = viewModelName,
+        )
     }
 
     val controller = remember(vmi) {
-        RivePerfLogger.measure("Create Controller") {
-            AndroidRiveController(vmi)
-        }
+        AndroidRiveController(vmi)
     }
 
     LaunchedEffect(vmi) {
         onControllerReady?.invoke(controller)
     }
 
-    // Config application timing
+    // Config application
     LaunchedEffect(vmi, config) {
-        RivePerfLogger.measure("Apply Config") {
+        config.booleans.forEach { (k, v) ->
+            controller.setBoolean(k, v)
+        }
 
-            config.booleans.forEach { (k, v) ->
-                controller.setBoolean(k, v)
-            }
+        config.strings.forEach { (k, v) ->
+            controller.setString(k, v)
+        }
 
-            config.strings.forEach { (k, v) ->
-                controller.setString(k, v)
-            }
+        config.enums.forEach { (k, v) ->
+            controller.setEnum(k, v)
+        }
 
-            config.enums.forEach { (k, v) ->
-                controller.setEnum(k, v)
-            }
-
-            config.numbers.forEach { (k, v) ->
-                controller.setNumber(k, v)
-            }
+        config.numbers.forEach { (k, v) ->
+            controller.setNumber(k, v)
         }
     }
 
-    // Trigger flows timing
+    // Trigger flows
     LaunchedEffect(vmi) {
         config.triggers.forEach { trigger ->
             launch {
-                RivePerfLogger.measureSuspend("TriggerFlow: $trigger") {
-                    vmi.getTriggerFlow(trigger)
-                        .collect {
-                            eventCallback?.onTriggerAnimation(trigger)
-                        }
-                }
+                vmi.getTriggerFlow(trigger)
+                    .collect {
+                        eventCallback?.onTriggerAnimation(trigger)
+                    }
             }
         }
     }
 
-    LaunchedEffect(vmi) {
-        val start = android.os.SystemClock.elapsedRealtime()
-
-        withFrameNanos {
-            RivePerfLogger.log("First frame render", start)
-        }
+    val riveFit = when (fit) {
+        RiveFit.CONTAIN -> Fit.Contain()
+        RiveFit.COVER -> Fit.Cover()
+        RiveFit.FILL -> Fit.Fill()
+        RiveFit.FIT_WIDTH -> Fit.FitWidth()
+        RiveFit.FIT_HEIGHT -> Fit.FitHeight()
+        RiveFit.NONE -> Fit.None()
+        RiveFit.SCALE_DOWN -> Fit.ScaleDown()
+        else -> Fit.Contain()
     }
-
-    android.util.Log.d("RIVE_BATCH", "RiveComponent compose: $resourceName-$instanceKey batched=$batched")
 
     if (batched) {
         RiveBatchItem(
             file = riveFile,
             modifier = modifier,
             viewModelInstance = vmi,
-            fit = Fit.Contain(),
+            fit = riveFit,
         )
     } else {
         PoolableRiveView(
             file = riveFile,
             modifier = modifier,
             viewModelInstance = vmi,
-            fit = Fit.Contain(),
+            fit = riveFit,
         )
-    }
-
-    // Log when this component enters/leaves composition
-    androidx.compose.runtime.DisposableEffect(resourceName, instanceKey) {
-        android.util.Log.d("RIVE_BATCH", "ENTER composition: $resourceName-$instanceKey")
-        onDispose {
-            android.util.Log.d("RIVE_BATCH", "LEAVE composition: $resourceName-$instanceKey")
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        RivePerfLogger.log("TOTAL Component Load: $resourceName", componentStart)
-    }
-}
-
-
-object RivePerfLogger {
-
-    const val TAG = "RIVE_PERF"
-
-    inline fun <T> measure(label: String, block: () -> T): T {
-        val start = android.os.SystemClock.elapsedRealtime()
-        val result = block()
-        val end = android.os.SystemClock.elapsedRealtime()
-
-        android.util.Log.d(TAG, "⏱ $label = ${end - start} ms")
-
-        return result
-    }
-
-    suspend inline fun <T> measureSuspend(
-        label: String,
-        crossinline block: suspend () -> T
-    ): T {
-        val start = android.os.SystemClock.elapsedRealtime()
-        val result = block()
-        val end = android.os.SystemClock.elapsedRealtime()
-
-        android.util.Log.d(TAG, "⏱ $label = ${end - start} ms")
-
-        return result
-    }
-
-    fun log(label: String, start: Long) {
-        val end = android.os.SystemClock.elapsedRealtime()
-        android.util.Log.d(TAG, "⏱ $label = ${end - start} ms")
     }
 }

@@ -1,7 +1,7 @@
 package com.arjun.rivecmptesting
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,13 +38,12 @@ import androidx.compose.ui.unit.dp
 import com.arjun.core.rive.PrimaryButtonParams
 import com.arjun.core.rive.RiveComponent
 import com.arjun.core.rive.RiveConfigs
-import com.arjun.core.rive.RiveController
+
 import com.arjun.core.rive.RiveEventCallback
 import com.arjun.core.rive.RiveItemConfigs
 import com.arjun.core.rive.RiveProps
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import rivecmptesting.composeapp.generated.resources.Res
 
 
 val ColorNeutralWhite = Color(0xFFFFFFFF)
@@ -150,7 +149,6 @@ fun PrimaryButton(
     contest: ContestItem,
     tabTag: String = "home"
 ) {
-    var controller by remember { mutableStateOf<RiveController?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -179,7 +177,6 @@ fun PrimaryButton(
                     }
                 }
             },
-        onControllerReady = { controller = it },
     )
 
 
@@ -253,8 +250,8 @@ fun LargeCardContent(
     ctaContent: @Composable () -> Unit
 ) {
 
-    val backgroundGradient by remember(gradientColors) {
-        mutableStateOf(Brush.verticalGradient(colors = gradientColors))
+    val backgroundGradient = remember(gradientColors) {
+        Brush.verticalGradient(colors = gradientColors)
     }
 
     Column(
@@ -262,7 +259,7 @@ fun LargeCardContent(
             .width(332.dp)
             .height(250.dp)
             .clip(RoundedCornerShape(16.dp))
-//            .clickable { onClick() }
+
     ) {
 
         Box(modifier = Modifier.fillMaxWidth().height(154.dp)) {
