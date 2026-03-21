@@ -108,6 +108,7 @@ actual fun RiveProvider(
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> {
                 RivePerfLogger.log("TOTAL provider setup", totalStart)
+                android.util.Log.d("RIVE_BATCH", "Creating RiveBatchSurface (single shared TextureView)")
                 RiveBatchSurface(
                     riveWorker = riveWorker,
                 ) {
@@ -214,10 +215,8 @@ actual fun RiveComponent(
         }
     }
 
-    // NOTE: Hidden tab items (via RiveRetainer) remain registered with the batch coordinator.
-    // They still draw on the shared surface but are visually hidden behind the active tab.
-    // GPU cost is negligible for small items. If profiling shows waste, pass RiveRetainer's
-    // isActive flag to skip registration for hidden items.
+    android.util.Log.d("RIVE_BATCH", "RiveComponent compose: $resourceName-$instanceKey batched=$batched")
+
     if (batched) {
         RiveBatchItem(
             file = riveFile,
@@ -232,6 +231,14 @@ actual fun RiveComponent(
             viewModelInstance = vmi,
             fit = Fit.Contain(),
         )
+    }
+
+    // Log when this component enters/leaves composition
+    androidx.compose.runtime.DisposableEffect(resourceName, instanceKey) {
+        android.util.Log.d("RIVE_BATCH", "ENTER composition: $resourceName-$instanceKey")
+        onDispose {
+            android.util.Log.d("RIVE_BATCH", "LEAVE composition: $resourceName-$instanceKey")
+        }
     }
 
     LaunchedEffect(Unit) {

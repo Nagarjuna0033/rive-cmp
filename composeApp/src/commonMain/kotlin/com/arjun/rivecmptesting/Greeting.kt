@@ -165,10 +165,14 @@ fun PrimaryButton(
         modifier = Modifier.height(50.dp).width(150.dp)
             .pointerInput(controller) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    println("RIVE_DEBUG: PointerDown on ${contest.id} at ${down.position}")
                     val up = waitForUpOrCancellation()
                     if (up != null) {
+                        println("RIVE_DEBUG: PointerUp on ${contest.id} → fireTrigger(Press), controller=${controller != null}")
                         controller?.fireTrigger("Press")
+                    } else {
+                        println("RIVE_DEBUG: PointerCancelled on ${contest.id}")
                     }
                 }
             },
