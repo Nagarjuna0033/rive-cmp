@@ -23,7 +23,6 @@ import app.rive.Fit
 import app.rive.RiveFile
 import app.rive.ViewModelInstance
 import app.rive.core.RiveSurface
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.isActive
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
@@ -40,7 +39,6 @@ private const val TAG = "Rive/PoolableView"
  *   to keep the surface alive across recycles
  * - Creates its own artboard + state machine per binding via [RiveWorker] directly
  * - Runs its own advance + draw loop while lifecycle is RESUMED
- * - Skips drawing when the state machine has settled (idle optimization)
  * - Cleans up artboard/SM on permanent dispose (via `onRelease`)
  */
 @Composable
@@ -65,9 +63,6 @@ internal fun PoolableRiveView(
     // Track the RiveSurface created from the TextureView's SurfaceTexture.
     var riveSurface by remember { mutableStateOf<RiveSurface?>(null) }
 
-    // Settled-frame optimization: skip drawing when the state machine is idle.
-    var isSettled by remember { mutableStateOf(false) }
-
     // Hide TextureView until the first Rive frame draws to avoid grey flash.
     var hasDrawnFirstFrame by remember { mutableStateOf(false) }
 
@@ -75,19 +70,6 @@ internal fun PoolableRiveView(
     LaunchedEffect(stateMachineHandle, viewModelInstance) {
         viewModelInstance ?: return@LaunchedEffect
         riveWorker.bindViewModelInstance(stateMachineHandle, viewModelInstance.instanceHandle)
-        isSettled = false
-    }
-
-    // Listen for settled events from the state machine.
-    LaunchedEffect(stateMachineHandle) {
-        riveWorker.settledFlow
-            .filter { it.handle == stateMachineHandle.handle }
-            .collect { isSettled = true }
-    }
-
-    // Unsettle when fit/bg changes so a redraw occurs.
-    LaunchedEffect(fit, backgroundColor) {
-        isSettled = false
     }
 
     // Render loop: advance SM + draw each frame while lifecycle is RESUMED.
@@ -107,8 +89,6 @@ internal fun PoolableRiveView(
                     lastFrameTime = frameTime
                     dt
                 }
-
-                if (isSettled) continue
 
                 riveWorker.advanceStateMachine(stateMachineHandle, deltaTime)
                 riveWorker.draw(artboardHandle, stateMachineHandle, surface, fit, backgroundColor)
@@ -155,14 +135,10 @@ internal fun PoolableRiveView(
                 surfaceTextureListener = createSurfaceTextureListener(
                     riveWorker = riveWorker,
                     onSurfaceCreated = { newSurface ->
-                        // Destroy any previous surface before tracking the new one.
                         destroyCurrentSurface()
                         riveSurface = newSurface
-                        isSettled = false
                     },
                     onSurfaceDestroyed = {
-                        // Destroy the RiveSurface wrapper but keep the SurfaceTexture alive
-                        // (onSurfaceTextureDestroyed returns false).
                         destroyCurrentSurface()
                     },
                 )
@@ -171,15 +147,12 @@ internal fun PoolableRiveView(
         modifier = viewModifier,
         onReset = { textureView ->
             // Called when the AndroidView is recycled in a LazyColumn.
-            // The TextureView and its SurfaceTexture remain alive (onSurfaceTextureDestroyed
-            // returns false). Destroy old wrapper if stale, then re-wrap.
-            // Hide until new content draws to prevent showing stale content from previous item.
+            // Hide until new content draws to prevent showing stale content.
             hasDrawnFirstFrame = false
             val existingTexture = textureView.surfaceTexture
             if (existingTexture != null) {
                 destroyCurrentSurface()
                 riveSurface = riveWorker.createRiveSurface(existingTexture)
-                isSettled = false
             }
         },
         onRelease = { textureView ->
