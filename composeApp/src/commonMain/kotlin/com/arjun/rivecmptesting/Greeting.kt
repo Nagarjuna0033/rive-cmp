@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -43,6 +44,7 @@ import com.arjun.core.rive.RiveItemConfigs
 import com.arjun.core.rive.RiveProps
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import rivecmptesting.composeapp.generated.resources.Res
 
 
 val ColorNeutralWhite = Color(0xFFFFFFFF)
@@ -152,36 +154,44 @@ fun PrimaryButton(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    RiveComponent(
-        resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
-        // Unique key = tabTag + contest id → no sharing across tabs
-        instanceKey = "$tabTag-${contest.id}",
-        width = 150,
-        height = 75,
-        modifier = Modifier,
-        config = RiveItemConfigs.primaryButton(
-            PrimaryButtonParams(
-                text = contest.name,
-                showCash = contest.isCash,
-                showLock = contest.isLocked,
-                showCoin = contest.isCoin,
-                isLoading = isLoading,
-                isEnabled = true,
-                buttonColor = "Yellow"
-            )
-        ),
-        viewModelName = "Button",
-        eventCallback = object : RiveEventCallback {
-            override fun onTriggerAnimation(animationName: String) {
-                scope.launch {
-                    isLoading = true
-                    delay(2000)
-                    isLoading = false
+    Box(
+        modifier = Modifier.height(50.dp).width(150.dp)
+    ) {
+        RiveComponent(
+            resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
+            // Unique key = tabTag + contest id → no sharing across tabs
+            instanceKey = "$tabTag-${contest.id}",
+            batched = false,
+//        width = 150,
+//        height = 75,
+//        modifier = Modifier.clickable { controller?.fireTrigger("Press") },
+            config = RiveItemConfigs.primaryButton(
+                PrimaryButtonParams(
+                    text = contest.name,
+                    showCash = contest.isCash,
+                    showLock = contest.isLocked,
+                    showCoin = contest.isCoin,
+                    isLoading = isLoading,
+                    isEnabled = true,
+                    buttonColor = "Yellow"
+                )
+            ),
+            viewModelName = "Button",
+            eventCallback = object : RiveEventCallback {
+                override fun onTriggerAnimation(animationName: String) {
+                    scope.launch {
+                        isLoading = true
+                        delay(2000)
+                        isLoading = false
+                    }
                 }
-            }
-        },
-        onControllerReady = { controller = it }
-    )
+            },
+            onControllerReady = { controller = it },
+            autoPlay = false,
+        )
+    }
+
+
 }
 
 
@@ -261,7 +271,7 @@ fun LargeCardContent(
             .width(332.dp)
             .height(250.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() }
+//            .clickable { onClick() }
     ) {
 
         Box(modifier = Modifier.fillMaxWidth().height(154.dp)) {

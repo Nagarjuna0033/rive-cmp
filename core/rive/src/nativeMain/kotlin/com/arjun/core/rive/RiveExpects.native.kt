@@ -13,6 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
 import androidx.compose.ui.unit.dp
+import com.arjun.core.rive.utils.RiveAlignment
+import com.arjun.core.rive.utils.RiveFit
 import kotlinx.cinterop.ExperimentalForeignApi
 
 @Composable

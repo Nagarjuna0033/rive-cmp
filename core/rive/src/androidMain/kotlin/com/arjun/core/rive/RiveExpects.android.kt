@@ -18,12 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.Alignment
 import app.rive.Fit
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.rememberRiveWorker
+import com.arjun.core.rive.utils.RiveAlignment
+import com.arjun.core.rive.utils.RiveFit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -52,7 +55,6 @@ actual fun RiveProvider(
 
     val riveWorker = rememberRiveWorker()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-
 
     // Start worker polling immediately and keep it running
     LaunchedEffect(riveWorker) {

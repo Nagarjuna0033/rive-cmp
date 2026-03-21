@@ -52,6 +52,8 @@ kotlin {
 
             implementation("androidx.navigation:navigation-compose:2.9.7")
             api(projects.core.rive)
+
+//            implementation("dev.muazkadan:rive-cmp:0.3.4")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
