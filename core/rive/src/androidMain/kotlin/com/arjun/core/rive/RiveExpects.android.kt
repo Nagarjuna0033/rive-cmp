@@ -2,6 +2,7 @@ package com.arjun.core.rive
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -111,6 +112,7 @@ actual fun RiveProvider(
                 android.util.Log.d("RIVE_BATCH", "Creating RiveBatchSurface (single shared TextureView)")
                 RiveBatchSurface(
                     riveWorker = riveWorker,
+                    modifier = Modifier.navigationBarsPadding(),
                 ) {
                     content()
                 }
