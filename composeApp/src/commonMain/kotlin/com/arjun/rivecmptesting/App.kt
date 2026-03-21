@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveProvider
-import com.arjun.core.rive.RiveRetainer
 
 
 @Composable
@@ -99,14 +98,10 @@ private fun MainScreen(onNotificationClick: () -> Unit) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            RiveRetainer(
-                activeTab = selectedTab,
-                maxRetained = 3,
-                tabs = listOf(
-                    { _ -> ContestLargeCards(contests = homeTabData, tabTag = "home") },
-                    { _ -> ContestLargeCards(contests = contestsTabData, tabTag = "contests") },
-                )
-            )
+            when (selectedTab) {
+                0 -> ContestLargeCards(contests = homeTabData, tabTag = "home")
+                1 -> ContestLargeCards(contests = contestsTabData, tabTag = "contests")
+            }
         }
     }
 }
