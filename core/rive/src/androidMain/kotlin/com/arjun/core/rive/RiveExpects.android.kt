@@ -169,12 +169,11 @@ actual fun RiveComponent(
     val riveFit = when (fit) {
         RiveFit.CONTAIN -> Fit.Contain()
         RiveFit.COVER -> Fit.Cover()
-        RiveFit.FILL -> Fit.Fill()
+        RiveFit.FILL -> Fit.Fill
         RiveFit.FIT_WIDTH -> Fit.FitWidth()
         RiveFit.FIT_HEIGHT -> Fit.FitHeight()
         RiveFit.NONE -> Fit.None()
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
-        else -> Fit.Contain()
     }
 
     if (batched) {

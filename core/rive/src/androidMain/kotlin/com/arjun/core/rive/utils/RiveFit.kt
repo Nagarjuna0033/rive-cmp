@@ -12,4 +12,5 @@ internal fun RiveFit.toAndroidFit(): Fit = when (this) {
     RiveFit.FIT_WIDTH -> Fit.FIT_WIDTH
     RiveFit.FIT_HEIGHT -> Fit.FIT_HEIGHT
     RiveFit.NONE -> Fit.NONE
+    RiveFit.SCALE_DOWN -> Fit.SCALE_DOWN
 }

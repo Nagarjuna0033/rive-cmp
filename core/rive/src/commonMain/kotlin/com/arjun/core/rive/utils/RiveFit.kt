@@ -35,5 +35,7 @@ enum class RiveFit {
     /**
      * Do not scale the animation, use its original size.
      */
-    NONE
+    NONE,
+
+    SCALE_DOWN
 }
