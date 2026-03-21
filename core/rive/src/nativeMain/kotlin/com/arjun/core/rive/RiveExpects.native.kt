@@ -68,6 +68,7 @@ actual fun RiveComponent(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
+    batched: Boolean,
 ) {
     val bridge = IOSRivePlatform.bridge ?: return
 

@@ -39,6 +39,7 @@ expect fun RiveComponent(
     artboardName: String? = null,
     fit: RiveFit = RiveFit.CONTAIN,
     stateMachineName: String? = null,
+    batched: Boolean = true,
 )
 
 
