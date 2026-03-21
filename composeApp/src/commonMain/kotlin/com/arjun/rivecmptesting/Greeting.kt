@@ -158,7 +158,7 @@ fun PrimaryButton(
         instanceKey = "$tabTag-${contest.id}",
         width = 150,
         height = 75,
-        modifier = Modifier.clickable { controller?.fireTrigger("Press") },
+        modifier = Modifier,
         config = RiveItemConfigs.primaryButton(
             PrimaryButtonParams(
                 text = contest.name,
