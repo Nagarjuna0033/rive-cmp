@@ -154,18 +154,12 @@ fun PrimaryButton(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Box(
-        modifier = Modifier.height(50.dp).width(150.dp)
-    ) {
-        RiveComponent(
-            resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
-            // Unique key = tabTag + contest id → no sharing across tabs
-            instanceKey = "$tabTag-${contest.id}",
-            batched = false,
-//        width = 150,
-//        height = 75,
-//        modifier = Modifier.clickable { controller?.fireTrigger("Press") },
-            config = RiveItemConfigs.primaryButton(
+    RiveComponent(
+        resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
+        // Unique key = tabTag + contest id → no sharing across tabs
+        instanceKey = "$tabTag-${contest.id}",
+        modifier = Modifier.height(50.dp).width(150.dp),
+        config = RiveItemConfigs.primaryButton(
                 PrimaryButtonParams(
                     text = contest.name,
                     showCash = contest.isCash,
@@ -186,10 +180,8 @@ fun PrimaryButton(
                     }
                 }
             },
-            onControllerReady = { controller = it },
-            autoPlay = false,
-        )
-    }
+        onControllerReady = { controller = it },
+    )
 
 
 }
