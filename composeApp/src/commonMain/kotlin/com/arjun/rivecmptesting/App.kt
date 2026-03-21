@@ -51,18 +51,15 @@ private object Routes {
 fun AppNav() {
     var currentRoute by remember { mutableStateOf(Routes.MAIN) }
 
-    // MainScreen is ALWAYS in composition — never destroyed on navigation.
-    // This preserves all TextureViews and Rive surfaces across screen transitions.
-    Box {
-        MainScreen(
+    // With batched rendering, a single batch surface persists — no need to keep
+    // MainScreen always in composition. Items re-register instantly on re-entry.
+    when (currentRoute) {
+        Routes.MAIN -> MainScreen(
             onNotificationClick = { currentRoute = Routes.NOTIFICATIONS }
         )
-
-        if (currentRoute == Routes.NOTIFICATIONS) {
-            NotificationsScreen(
-                onBack = { currentRoute = Routes.MAIN }
-            )
-        }
+        Routes.NOTIFICATIONS -> NotificationsScreen(
+            onBack = { currentRoute = Routes.MAIN }
+        )
     }
 }
 
