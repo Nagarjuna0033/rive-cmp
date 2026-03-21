@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.Alignment
 import app.rive.Fit
+import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.rememberRiveWorker
 import kotlinx.coroutines.Dispatchers
@@ -133,6 +134,7 @@ actual fun RiveComponent(
     artboardName: String?,
     fit: RiveFit,
     stateMachineName: String?,
+    batched: Boolean,
 ) {
 
     val componentStart = remember { android.os.SystemClock.elapsedRealtime() }
@@ -210,12 +212,25 @@ actual fun RiveComponent(
         }
     }
 
-    PoolableRiveView(
-        file = riveFile,
-        modifier = modifier,
-        viewModelInstance = vmi,
-        fit = Fit.Contain(),
-    )
+    // NOTE: Hidden tab items (via RiveRetainer) remain registered with the batch coordinator.
+    // They still draw on the shared surface but are visually hidden behind the active tab.
+    // GPU cost is negligible for small items. If profiling shows waste, pass RiveRetainer's
+    // isActive flag to skip registration for hidden items.
+    if (batched) {
+        RiveBatchItem(
+            file = riveFile,
+            modifier = modifier,
+            viewModelInstance = vmi,
+            fit = Fit.Contain(),
+        )
+    } else {
+        PoolableRiveView(
+            file = riveFile,
+            modifier = modifier,
+            viewModelInstance = vmi,
+            fit = Fit.Contain(),
+        )
+    }
 
     LaunchedEffect(Unit) {
         RivePerfLogger.log("TOTAL Component Load: $resourceName", componentStart)
