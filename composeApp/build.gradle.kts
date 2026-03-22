@@ -32,8 +32,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
 
-            // Local Rive SDK with batched drawing support
-            implementation(files("libs/rive-android-local.aar"))
+            // Rive SDK provided transitively via core:rive module
             // Transitive dependencies of the local .aar (not auto-resolved)
             implementation("androidx.startup:startup-runtime:1.2.0")
             implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
