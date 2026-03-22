@@ -104,8 +104,8 @@ kotlin {
                 // commonMain by default and will correctly pull the Android artifacts of any KMP
                 // dependencies declared in commonMain.
 
-                // Local Rive SDK with batched drawing support
-                implementation(files("libs/rive-android-local.aar"))
+                // Local Rive SDK with batched drawing support (api so composeApp can access Rive classes)
+                api(files("libs/rive-android-local.aar"))
                 implementation(libs.androidx.lifecycle.process)
                 implementation(libs.androidx.ui)
                 // Transitive dependencies of the local .aar (not auto-resolved)
