@@ -13,12 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -104,28 +100,6 @@ class RiveBatchCoordinator {
     /** Unregister an item (e.g. when it leaves composition). */
     internal fun unregister(key: Any) {
         items.remove(key)
-    }
-
-    /**
-     * Apply a scroll delta to all registered items immediately.
-     * Called from [NestedScrollConnection.onPreScroll] which fires BEFORE
-     * [withFrameNanos], so positions are pre-corrected before the render loop reads them.
-     * [onPlaced] overwrites with official positions after layout, keeping things in sync.
-     */
-    internal fun applyScrollDelta(dx: Float, dy: Float) {
-        val dxInt = dx.toInt()
-        val dyInt = dy.toInt()
-        if (dxInt == 0 && dyInt == 0) return
-
-        for (entry in items.entries) {
-            val item = entry.value
-            entry.setValue(
-                item.copy(
-                    x = item.x + dxInt,
-                    y = item.y + dyInt,
-                )
-            )
-        }
     }
 
     /** Round up to next power of 2 (minimum 4). */
@@ -228,19 +202,6 @@ fun RiveBatchSurface(
         }
     }
 
-    // Intercept scroll deltas BEFORE they are consumed by the LazyColumn.
-    // onPreScroll fires during input processing, which happens BEFORE withFrameNanos.
-    // This pre-corrects item positions so the render loop reads accurate coordinates.
-    // After layout, onPlaced overwrites with official positions (self-correcting).
-    val nestedScrollConnection = remember(coordinator) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                coordinator.applyScrollDelta(available.x, available.y)
-                return Offset.Zero // don't consume — let the scrollable handle it
-            }
-        }
-    }
-
     // Render loop: advances state machines and draws all items each frame.
     LaunchedEffect(lifecycleOwner, surface) {
         val currentSurface = surface ?: return@LaunchedEffect
@@ -293,7 +254,6 @@ fun RiveBatchSurface(
 
     // Track the surface's root position so items can compute relative offsets.
     val positionTrackingModifier = modifier
-        .nestedScroll(nestedScrollConnection)
         .onGloballyPositioned { coords ->
             val pos = coords.positionInRoot()
             coordinator.surfaceRootX = pos.x
