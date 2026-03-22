@@ -9,22 +9,22 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.PointerEvent
-import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerInputFilter
-import androidx.compose.ui.input.pointer.PointerInputModifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -78,7 +78,8 @@ class RiveBatchCoordinator {
     var surfaceRootY: Float = 0f
         internal set
 
-    // Pre-allocated batch arrays — only reallocated when item count changes.
+    // Pre-allocated batch arrays — power-of-2 sized to avoid reallocation thrashing.
+    private var capacity = 0
     internal var artboardHandles = LongArray(0); private set
     internal var smHandles = LongArray(0); private set
     internal var viewportXs = IntArray(0); private set
@@ -92,6 +93,9 @@ class RiveBatchCoordinator {
     // StateMachineHandle references for advancing (not passed to JNI).
     internal var smHandleRefs = arrayOfNulls<StateMachineHandle>(0); private set
 
+    // Snapshot array for iteration — avoids ConcurrentHashMap iterator allocation per frame.
+    private var snapshot = arrayOfNulls<Map.Entry<Any, BatchItemDescriptor>>(0)
+
     /** Register an item for batched rendering. */
     internal fun register(key: Any, descriptor: BatchItemDescriptor) {
         items[key] = descriptor
@@ -103,31 +107,69 @@ class RiveBatchCoordinator {
     }
 
     /**
+     * Apply a scroll delta to all registered items immediately.
+     * Called from [NestedScrollConnection.onPreScroll] which fires BEFORE
+     * [withFrameNanos], so positions are pre-corrected before the render loop reads them.
+     * [onPlaced] overwrites with official positions after layout, keeping things in sync.
+     */
+    internal fun applyScrollDelta(dx: Float, dy: Float) {
+        val dxInt = dx.toInt()
+        val dyInt = dy.toInt()
+        if (dxInt == 0 && dyInt == 0) return
+
+        for (entry in items.entries) {
+            val item = entry.value
+            entry.setValue(
+                item.copy(
+                    x = item.x + dxInt,
+                    y = item.y + dyInt,
+                )
+            )
+        }
+    }
+
+    /** Round up to next power of 2 (minimum 4). */
+    private fun nextPowerOf2(n: Int): Int {
+        if (n <= 4) return 4
+        var v = n - 1
+        v = v or (v shr 1)
+        v = v or (v shr 2)
+        v = v or (v shr 4)
+        v = v or (v shr 8)
+        v = v or (v shr 16)
+        return v + 1
+    }
+
+    /**
      * Fills pre-allocated arrays with current item data.
-     * Only reallocates when item count changes — zero allocation in steady state.
+     * Uses power-of-2 sizing to avoid reallocation during scroll.
      * Returns the number of items filled (0 means nothing to draw).
      */
     internal fun fillBatchArrays(): Int {
         val count = items.size
         if (count == 0) return 0
 
-        if (count != artboardHandles.size) {
-            artboardHandles = LongArray(count)
-            smHandles = LongArray(count)
-            viewportXs = IntArray(count)
-            viewportYs = IntArray(count)
-            viewportWidths = IntArray(count)
-            viewportHeights = IntArray(count)
-            fits = ByteArray(count)
-            alignments = ByteArray(count)
-            scaleFactors = FloatArray(count)
-            clearColors = IntArray(count)
-            smHandleRefs = arrayOfNulls(count)
+        // Only reallocate when count exceeds capacity or drops below half.
+        if (count > capacity || count < capacity / 4) {
+            capacity = nextPowerOf2(count)
+            artboardHandles = LongArray(capacity)
+            smHandles = LongArray(capacity)
+            viewportXs = IntArray(capacity)
+            viewportYs = IntArray(capacity)
+            viewportWidths = IntArray(capacity)
+            viewportHeights = IntArray(capacity)
+            fits = ByteArray(capacity)
+            alignments = ByteArray(capacity)
+            scaleFactors = FloatArray(capacity)
+            clearColors = IntArray(capacity)
+            smHandleRefs = arrayOfNulls(capacity)
+            snapshot = arrayOfNulls(capacity)
         }
 
         var i = 0
-        for (item in items.values) {
-            if (i >= count) break
+        for (entry in items.entries) {
+            if (i >= capacity) break
+            val item = entry.value
             artboardHandles[i] = item.artboardHandle.handle
             smHandles[i] = item.stateMachineHandle.handle
             viewportXs[i] = item.x
@@ -158,6 +200,9 @@ val LocalRiveBatchCoordinator = compositionLocalOf<RiveBatchCoordinator?> { null
  * Wraps a single [TextureView] and renders all registered items each frame using
  * [CommandQueue.drawBatch], reducing per-frame GPU context switches from N to 1.
  *
+ * Uses a [NestedScrollConnection] to intercept scroll deltas before the render loop,
+ * pre-correcting item positions so they are accurate when [fillBatchArrays] reads them.
+ *
  * @param riveWorker The Rive command queue / worker to use for rendering.
  * @param modifier Modifier applied to the surface layout.
  * @param surfaceClearColor Color to clear the entire surface with before drawing items.
@@ -174,14 +219,25 @@ fun RiveBatchSurface(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var surface by remember { mutableStateOf<RiveSurface?>(null) }
-    var surfaceWidth by remember { mutableIntStateOf(0) }
-    var surfaceHeight by remember { mutableIntStateOf(0) }
 
     // Cleanup: destroy the RiveSurface when it changes or on dispose.
     DisposableEffect(surface) {
         val nonNullSurface = surface ?: return@DisposableEffect onDispose { }
         onDispose {
             riveWorker.destroyRiveSurface(nonNullSurface)
+        }
+    }
+
+    // Intercept scroll deltas BEFORE they are consumed by the LazyColumn.
+    // onPreScroll fires during input processing, which happens BEFORE withFrameNanos.
+    // This pre-corrects item positions so the render loop reads accurate coordinates.
+    // After layout, onPlaced overwrites with official positions (self-correcting).
+    val nestedScrollConnection = remember(coordinator) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                coordinator.applyScrollDelta(available.x, available.y)
+                return Offset.Zero // don't consume — let the scrollable handle it
+            }
         }
     }
 
@@ -209,38 +265,51 @@ fun RiveBatchSurface(
 
                 // Advance all state machines.
                 for (j in 0 until count) {
-                    riveWorker.advanceStateMachine(coordinator.smHandleRefs[j]!!, deltaTime)
+                    val smRef = coordinator.smHandleRefs[j] ?: continue
+                    riveWorker.advanceStateMachine(smRef, deltaTime)
                 }
 
-                riveWorker.drawBatch(
-                    currentSurface,
-                    coordinator.artboardHandles,
-                    coordinator.smHandles,
-                    coordinator.viewportXs,
-                    coordinator.viewportYs,
-                    coordinator.viewportWidths,
-                    coordinator.viewportHeights,
-                    coordinator.fits,
-                    coordinator.alignments,
-                    coordinator.scaleFactors,
-                    coordinator.clearColors,
-                    surfaceClearColor,
-                )
+                try {
+                    riveWorker.drawBatch(
+                        currentSurface,
+                        coordinator.artboardHandles,
+                        coordinator.smHandles,
+                        coordinator.viewportXs,
+                        coordinator.viewportYs,
+                        coordinator.viewportWidths,
+                        coordinator.viewportHeights,
+                        coordinator.fits,
+                        coordinator.alignments,
+                        coordinator.scaleFactors,
+                        coordinator.clearColors,
+                        surfaceClearColor,
+                    )
+                } catch (e: Exception) {
+                    RiveLog.e(BATCH_DRAW_TAG) { "drawBatch failed: ${e.message}" }
+                }
             }
         }
     }
 
     // Track the surface's root position so items can compute relative offsets.
-    val positionTrackingModifier = modifier.onGloballyPositioned { coords ->
-        val pos = coords.positionInRoot()
-        coordinator.surfaceRootX = pos.x
-        coordinator.surfaceRootY = pos.y
-    }
+    val positionTrackingModifier = modifier
+        .nestedScroll(nestedScrollConnection)
+        .onGloballyPositioned { coords ->
+            val pos = coords.positionInRoot()
+            coordinator.surfaceRootX = pos.x
+            coordinator.surfaceRootY = pos.y
+        }
 
     Layout(
         modifier = positionTrackingModifier,
         content = {
-            // Single TextureView for all batch items.
+            // Provide the coordinator to children and render content FIRST (behind).
+            CompositionLocalProvider(LocalRiveBatchCoordinator provides coordinator) {
+                content()
+            }
+
+            // Single TextureView SECOND (on top as transparent overlay).
+            // isOpaque = false means only Rive items are visible; rest is transparent.
             AndroidView(factory = { context: Context ->
                 TextureView(context).apply {
                     isOpaque = false
@@ -254,8 +323,6 @@ fun RiveBatchSurface(
                                 "Batch surface texture available ($width x $height)"
                             }
                             surface = riveWorker.createRiveSurface(newSurfaceTexture)
-                            surfaceWidth = width
-                            surfaceHeight = height
                         }
 
                         override fun onSurfaceTextureDestroyed(
@@ -274,19 +341,12 @@ fun RiveBatchSurface(
                             RiveLog.d(BATCH_TAG) {
                                 "Batch surface texture size changed ($width x $height)"
                             }
-                            surfaceWidth = width
-                            surfaceHeight = height
                         }
 
                         override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {}
                     }
                 }
             })
-
-            // Provide the coordinator to children and render content.
-            CompositionLocalProvider(LocalRiveBatchCoordinator provides coordinator) {
-                content()
-            }
         }
     ) { measurables, constraints ->
         val placeables = measurables.map { it.measure(constraints) }
@@ -340,65 +400,9 @@ fun RiveBatchItem(
         }
     }
 
-    // Pointer input handling — forward touch events to the state machine.
-    val pointerInputModifier = remember(stateMachineHandle, fit) {
-        object : PointerInputModifier {
-            override val pointerInputFilter = object : PointerInputFilter() {
-                override fun onPointerEvent(
-                    pointerEvent: PointerEvent,
-                    pass: PointerEventPass,
-                    bounds: IntSize
-                ) {
-                    if (pass != PointerEventPass.Main) return
-
-                    val pointerFns: List<(StateMachineHandle, Fit, Float, Float, Int, Float, Float) -> Unit> =
-                        when {
-                            pointerEvent.type == PointerEventType.Move -> listOf { smh, f, w, h, id, x, y ->
-                                riveWorker.pointerMove(smh, f, w, h, id, x, y)
-                            }
-                            pointerEvent.type == PointerEventType.Press -> listOf { smh, f, w, h, id, x, y ->
-                                riveWorker.pointerDown(smh, f, w, h, id, x, y)
-                            }
-                            pointerEvent.type == PointerEventType.Release -> listOf(
-                                { smh: StateMachineHandle, f: Fit, w: Float, h: Float, id: Int, x: Float, y: Float ->
-                                    riveWorker.pointerUp(smh, f, w, h, id, x, y)
-                                },
-                                { smh: StateMachineHandle, f: Fit, w: Float, h: Float, id: Int, x: Float, y: Float ->
-                                    riveWorker.pointerExit(smh, f, w, h, id, x, y)
-                                }
-                            )
-                            pointerEvent.type == PointerEventType.Exit -> listOf { smh, f, w, h, id, x, y ->
-                                riveWorker.pointerExit(smh, f, w, h, id, x, y)
-                            }
-                            else -> return
-                        }
-
-                    for (change in pointerEvent.changes) {
-                        val pointerPosition = change.position
-                        for (fn in pointerFns) {
-                            fn(
-                                stateMachineHandle,
-                                fit,
-                                bounds.width.toFloat(),
-                                bounds.height.toFloat(),
-                                change.id.value.toInt(),
-                                pointerPosition.x,
-                                pointerPosition.y,
-                            )
-                        }
-                        change.consume()
-                    }
-                }
-
-                override fun onCancel() {}
-            }
-        }
-    }
-
-    // Register/update position on every layout pass (including scroll).
-    val combinedModifier = modifier
-        .onGloballyPositioned { coords ->
-            if (!coords.isAttached) return@onGloballyPositioned
+    // Helper to update position in the coordinator from layout coordinates.
+    val updatePosition = { coords: androidx.compose.ui.layout.LayoutCoordinates ->
+        if (coords.isAttached) {
             val rootPos = coords.positionInRoot()
             val size = coords.size
             val relativeX = (rootPos.x - coordinator.surfaceRootX).toInt()
@@ -417,7 +421,47 @@ fun RiveBatchItem(
                 )
             )
         }
-        .then(pointerInputModifier)
+    }
+
+    // Register/update position on layout AND placement (scroll).
+    // onGloballyPositioned fires on layout changes.
+    // onPlaced fires on every placement including scroll offsets.
+    // pointerInput forwards touch events to the state machine.
+    val combinedModifier = modifier
+        .onGloballyPositioned(updatePosition)
+        .onPlaced(updatePosition)
+        .pointerInput(stateMachineHandle, fit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val boundsWidth = size.width.toFloat()
+                    val boundsHeight = size.height.toFloat()
+
+                    for (change in event.changes) {
+                        val px = change.position.x
+                        val py = change.position.y
+                        val id = change.id.value.toInt()
+
+                        when (event.type) {
+                            PointerEventType.Press -> {
+                                riveWorker.pointerDown(stateMachineHandle, fit, boundsWidth, boundsHeight, id, px, py)
+                            }
+                            PointerEventType.Move -> {
+                                riveWorker.pointerMove(stateMachineHandle, fit, boundsWidth, boundsHeight, id, px, py)
+                            }
+                            PointerEventType.Release -> {
+                                riveWorker.pointerUp(stateMachineHandle, fit, boundsWidth, boundsHeight, id, px, py)
+                                riveWorker.pointerExit(stateMachineHandle, fit, boundsWidth, boundsHeight, id, px, py)
+                            }
+                            PointerEventType.Exit -> {
+                                riveWorker.pointerExit(stateMachineHandle, fit, boundsWidth, boundsHeight, id, px, py)
+                            }
+                        }
+                        change.consume()
+                    }
+                }
+            }
+        }
 
     Layout(
         modifier = combinedModifier,
