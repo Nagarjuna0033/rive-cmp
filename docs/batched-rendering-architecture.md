@@ -136,6 +136,43 @@ These are documented but not yet implemented:
 | **FBO size bucketing** | Pool 3 FBO sizes instead of per-item. Reduces surface count from N to 3. | Low |
 | **Background thread rendering** | Move `drawToBuffer` calls off main thread. Eliminates main thread blocking. | Medium |
 
+## When to Use `batched = true` vs `batched = false`
+
+```kotlin
+// Default — batched rendering (recommended for most cases)
+RiveComponent(resourceName = "button.riv", batched = true)
+
+// Opt out — per-item TextureView with pooling
+RiveComponent(resourceName = "hero.riv", batched = false)
+```
+
+### Use `batched = true` (default) for:
+
+| Use Case | Why |
+|----------|-----|
+| Buttons, icons, small controls | Tiny pixel buffers (~240KB each), negligible readback cost |
+| Cards in lists (LazyColumn) | Perfect scroll sync, no jank, no 200ms creation delay |
+| Tab bars, navigation items | Instant appearance on tab switch |
+| Many items on one screen | 1 EGL context vs N — massive memory savings |
+| Static or simple animations | Low GPU cost per item |
+
+### Use `batched = false` for:
+
+| Use Case | Why |
+|----------|-----|
+| Hero animations (full/half screen) | Large pixel readback would block main thread (~5-10ms per item) |
+| Full-screen animated backgrounds | Single large TextureView is more efficient than large pixel copy |
+| Items > ~750x750px | Pixel buffer + bitmap memory becomes significant (~6MB+ per item) |
+| Complex animations with many draw calls | Direct GPU rendering avoids the readback bottleneck |
+
+### Rules of Thumb
+
+- **< 500x500px** → `batched = true` (always)
+- **500–750px on one side** → `batched = true` (usually fine, benchmark if many items)
+- **> 750px on both sides** → `batched = false` (readback cost outweighs batching benefit)
+- **Only 1-2 large items on screen** → `batched = false` (no batching benefit with few items)
+- **10+ small items on screen** → `batched = true` (this is where batching shines)
+
 ## Key Files
 
 ### SDK (`rive-android`)
