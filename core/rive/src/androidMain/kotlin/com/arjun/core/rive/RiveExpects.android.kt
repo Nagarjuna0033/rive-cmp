@@ -135,25 +135,12 @@ actual fun RiveComponent(
         onControllerReady?.invoke(controller)
     }
 
-    // Config application — must complete before first render to avoid flash of default state.
-    var configApplied by remember { mutableStateOf(false) }
-    LaunchedEffect(vmi, config) {
-        config.booleans.forEach { (k, v) ->
-            controller.setBoolean(k, v)
-        }
-
-        config.strings.forEach { (k, v) ->
-            controller.setString(k, v)
-        }
-
-        config.enums.forEach { (k, v) ->
-            controller.setEnum(k, v)
-        }
-
-        config.numbers.forEach { (k, v) ->
-            controller.setNumber(k, v)
-        }
-        configApplied = true
+    // Apply config synchronously during composition — before the first render frame.
+    // This ensures state B is set BEFORE the artboard is ever drawn. No flash, no blank.
+    // Re-runs when vmi or config changes.
+    @SuppressLint("RememberReturnType")
+    remember(vmi, config) {
+        controller.applyConfig(config)
     }
 
     // Trigger flows
@@ -178,23 +165,19 @@ actual fun RiveComponent(
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
     }
 
-    // Gate rendering on config — avoids flash of default state (e.g. green → blue).
-    // 1-frame blank is invisible; a color flash is very visible.
-    if (configApplied) {
-        if (batched) {
-            RiveBatchItem(
-                file = riveFile,
-                modifier = modifier,
-                viewModelInstance = vmi,
-                fit = riveFit,
-            )
-        } else {
-            PoolableRiveView(
-                file = riveFile,
-                modifier = modifier,
-                viewModelInstance = vmi,
-                fit = riveFit,
-            )
-        }
+    if (batched) {
+        RiveBatchItem(
+            file = riveFile,
+            modifier = modifier,
+            viewModelInstance = vmi,
+            fit = riveFit,
+        )
+    } else {
+        PoolableRiveView(
+            file = riveFile,
+            modifier = modifier,
+            viewModelInstance = vmi,
+            fit = riveFit,
+        )
     }
 }
