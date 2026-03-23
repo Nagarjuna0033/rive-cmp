@@ -135,7 +135,8 @@ actual fun RiveComponent(
         onControllerReady?.invoke(controller)
     }
 
-    // Config application
+    // Config application — must complete before first render to avoid flash of default state.
+    var configApplied by remember { mutableStateOf(false) }
     LaunchedEffect(vmi, config) {
         config.booleans.forEach { (k, v) ->
             controller.setBoolean(k, v)
@@ -152,6 +153,7 @@ actual fun RiveComponent(
         config.numbers.forEach { (k, v) ->
             controller.setNumber(k, v)
         }
+        configApplied = true
     }
 
     // Trigger flows
@@ -176,19 +178,23 @@ actual fun RiveComponent(
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
     }
 
-    if (batched) {
-        RiveBatchItem(
-            file = riveFile,
-            modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
-    } else {
-        PoolableRiveView(
-            file = riveFile,
-            modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
+    // Gate rendering on config — avoids flash of default state (e.g. green → blue).
+    // 1-frame blank is invisible; a color flash is very visible.
+    if (configApplied) {
+        if (batched) {
+            RiveBatchItem(
+                file = riveFile,
+                modifier = modifier,
+                viewModelInstance = vmi,
+                fit = riveFit,
+            )
+        } else {
+            PoolableRiveView(
+                file = riveFile,
+                modifier = modifier,
+                viewModelInstance = vmi,
+                fit = riveFit,
+            )
+        }
     }
 }
