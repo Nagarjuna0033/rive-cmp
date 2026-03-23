@@ -81,8 +81,7 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
                 existing.surface = null
                 existing.pixels = null
                 existing.argbScratch = null
-                existing.bitmap?.recycle()
-                existing.bitmap = null
+                existing.bitmap = null // Old bitmap GC'd when RenderThread releases it
             }
             existing.artboardHandle = artboardHandle
             existing.stateMachineHandle = stateMachineHandle
@@ -102,7 +101,8 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
     fun unregister(key: Any) {
         val item = items.remove(key) ?: return
         item.surface?.let { riveWorker.destroyRiveSurface(it) }
-        item.bitmap?.recycle()
+        // Do NOT recycle bitmap — Compose's RenderThread may still be drawing it.
+        // Let GC handle it when no longer referenced.
     }
 
     fun renderFrame(deltaTime: Duration) {
@@ -160,7 +160,6 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
     fun destroy() {
         for ((_, item) in items) {
             item.surface?.let { riveWorker.destroyRiveSurface(it) }
-            item.bitmap?.recycle()
         }
         items.clear()
     }
@@ -307,6 +306,9 @@ fun RiveBatchItem(
         modifier = combinedModifier,
         content = {}
     ) { _, constraints ->
-        layout(constraints.maxWidth, constraints.maxHeight) {}
+        // Use 0 if unbounded — item MUST have explicit size from modifier chain.
+        val w = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+        val h = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
+        layout(w, h) {}
     }
 }
