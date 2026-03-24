@@ -119,16 +119,14 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
                 item.hwBufferA = HardwareBuffer.create(
                     item.width, item.height, HardwareBuffer.RGBA_8888, 1,
                     HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
-                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or
-                        HardwareBuffer.USAGE_GPU_DATA_BUFFER
+                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
                 )
             }
             if (item.hwBufferB == null) {
                 item.hwBufferB = HardwareBuffer.create(
                     item.width, item.height, HardwareBuffer.RGBA_8888, 1,
                     HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
-                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or
-                        HardwareBuffer.USAGE_GPU_DATA_BUFFER
+                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
                 )
             }
 
