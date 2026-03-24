@@ -2254,6 +2254,37 @@ class CommandQueue(
     )
 
     /**
+     * Renders an artboard to a HardwareBuffer via zero-copy GPU blit.
+     * No glReadPixels, no CPU pixel conversion — GPU texture IS the bitmap.
+     * Requires API 26+.
+     */
+    fun drawToHardwareBuffer(
+        artboardHandle: ArtboardHandle,
+        stateMachineHandle: StateMachineHandle,
+        surface: RiveSurface,
+        hardwareBuffer: android.hardware.HardwareBuffer,
+        width: Int,
+        height: Int,
+        fit: Fit = Fit.Contain(),
+        clearColor: Int = Color.TRANSPARENT
+    ) = bridge.cppDrawToHardwareBuffer(
+        cppPointer.pointer,
+        renderContext.nativeObjectPointer,
+        surface.surfaceNativePointer,
+        surface.drawKey.handle,
+        artboardHandle.handle,
+        stateMachineHandle.handle,
+        surface.renderTargetPointer.pointer,
+        width,
+        height,
+        fit.nativeMapping,
+        fit.alignment.nativeMapping,
+        fit.scaleFactor,
+        clearColor,
+        hardwareBuffer
+    )
+
+    /**
      * Enqueue arbitrary Kotlin code to be run on the command server thread.
      *
      * This allows executing Kotlin-side logic in the context of the command server thread. This can

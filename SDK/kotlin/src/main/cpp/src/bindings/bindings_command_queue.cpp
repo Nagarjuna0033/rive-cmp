@@ -1,6 +1,11 @@
 #include <jni.h>
 #include <android/native_window_jni.h>
+#include <android/hardware_buffer.h>
+#include <dlfcn.h>
 #include <GLES3/gl3.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES2/gl2ext.h>
 
 #include "models/render_context.hpp"
 #include "helpers/android_factories.hpp"
@@ -2596,6 +2601,293 @@ extern "C"
                 env->ThrowNew(
                     jExceptionClass.get(),
                     "Failed to draw into buffer: State machine instance is null");
+                break;
+        }
+    }
+
+    JNIEXPORT void JNICALL
+    Java_app_rive_core_CommandQueueJNIBridge_cppDrawToHardwareBuffer(
+        JNIEnv* env,
+        jobject,
+        jlong ref,
+        jlong renderContextRef,
+        jlong surfaceRef,
+        jlong drawKey,
+        jlong artboardHandleRef,
+        jlong stateMachineHandleRef,
+        jlong renderTargetRef,
+        jint jWidth,
+        jint jHeight,
+        jbyte jFit,
+        jbyte jAlignment,
+        jfloat jScaleFactor,
+        jint jClearColor,
+        jobject jHardwareBuffer)
+    {
+        auto* commandQueue = reinterpret_cast<CommandQueueWithThread*>(ref);
+        auto* renderContext =
+            reinterpret_cast<RenderContext*>(renderContextRef);
+        auto* nativeSurface = reinterpret_cast<void*>(surfaceRef);
+        auto* renderTarget =
+            reinterpret_cast<rive::gpu::RenderTargetGL*>(renderTargetRef);
+        auto fit = GetFit(static_cast<uint8_t>(jFit));
+        auto alignment = GetAlignment(static_cast<uint8_t>(jAlignment));
+        auto scaleFactor = static_cast<float_t>(jScaleFactor);
+        auto clearColor = static_cast<uint32_t>(jClearColor);
+        auto width = static_cast<int>(jWidth);
+        auto height = static_cast<int>(jHeight);
+
+        // Get AHardwareBuffer from Java HardwareBuffer object.
+        // We use dlsym because AHardwareBuffer_fromHardwareBuffer requires
+        // API 26+ but the SDK compiles with minSdk 21. At runtime, this
+        // function is only called on API 26+ (guarded by Kotlin side).
+        using FromHardwareBufferFn =
+            AHardwareBuffer* (*)(JNIEnv*, jobject);
+        static auto fromHardwareBuffer =
+            reinterpret_cast<FromHardwareBufferFn>(
+                dlsym(RTLD_DEFAULT,
+                      "AHardwareBuffer_fromHardwareBuffer"));
+        auto jExceptionClass =
+            FindClass(env, "app/rive/RiveDrawToBufferException");
+        if (fromHardwareBuffer == nullptr)
+        {
+            RiveLogE(TAG_CQ,
+                     "AHardwareBuffer_fromHardwareBuffer not available "
+                     "(requires API 26+)");
+            env->ThrowNew(jExceptionClass.get(),
+                          "AHardwareBuffer_fromHardwareBuffer not available "
+                          "(requires API 26+)");
+            return;
+        }
+        AHardwareBuffer* hardwareBuffer =
+            fromHardwareBuffer(env, jHardwareBuffer);
+        if (hardwareBuffer == nullptr)
+        {
+            RiveLogE(TAG_CQ,
+                     "Failed to get AHardwareBuffer from Java HardwareBuffer");
+            env->ThrowNew(jExceptionClass.get(),
+                          "Failed to get AHardwareBuffer from Java "
+                          "HardwareBuffer");
+            return;
+        }
+
+        // Success case plus any potential errors producing the drawn buffer
+        enum class DrawResult
+        {
+            Success,
+            ArtboardNull,
+            StateMachineNull,
+            EGLImageCreationFailed,
+        };
+
+        // Be sure all pathways signal completion with `set_value` before
+        // returning to avoid deadlock.
+        auto completionPromise = std::make_shared<std::promise<DrawResult>>();
+        auto drawWork = [commandQueue,
+                         renderContext,
+                         nativeSurface,
+                         artboardHandleRef,
+                         stateMachineHandleRef,
+                         renderTarget,
+                         width,
+                         height,
+                         fit,
+                         alignment,
+                         scaleFactor,
+                         clearColor,
+                         hardwareBuffer,
+                         completionPromise](rive::DrawKey drawKey,
+                                            rive::CommandServer* server) {
+            auto artboard = server->getArtboardInstance(
+                handleFromLong<rive::ArtboardHandle>(artboardHandleRef));
+            if (artboard == nullptr)
+            {
+                if (commandQueue->shouldLogArtboardNull(drawKey))
+                {
+                    RiveLogE(
+                        TAG_CQ,
+                        "Draw failed: Artboard instance is null (only reported once)");
+                }
+                completionPromise->set_value(DrawResult::ArtboardNull);
+                return;
+            }
+
+            auto stateMachine = server->getStateMachineInstance(
+                handleFromLong<rive::StateMachineHandle>(
+                    stateMachineHandleRef));
+            if (stateMachine == nullptr)
+            {
+                if (commandQueue->shouldLogStateMachineNull(drawKey))
+                {
+                    RiveLogE(
+                        TAG_CQ,
+                        "Draw failed: State machine instance is null (only reported once)");
+                }
+                completionPromise->set_value(DrawResult::StateMachineNull);
+                return;
+            }
+
+            renderContext->beginFrame(nativeSurface);
+
+            // Retrieve the Rive RenderContext from the CommandServer
+            auto factory =
+                reinterpret_cast<CommandServerFactory*>(server->factory());
+            auto riveContext = factory->getRenderContext()->riveContext.get();
+
+            riveContext->beginFrame(rive::gpu::RenderContext::FrameDescriptor{
+                .renderTargetWidth = static_cast<uint32_t>(width),
+                .renderTargetHeight = static_cast<uint32_t>(height),
+                .loadAction = rive::gpu::LoadAction::clear,
+                .clearColor = clearColor,
+            });
+
+            auto renderer = rive::RiveRenderer(riveContext);
+
+            renderer.align(fit,
+                           alignment,
+                           rive::AABB(0.0f,
+                                      0.0f,
+                                      static_cast<float_t>(width),
+                                      static_cast<float_t>(height)),
+                           artboard->bounds(),
+                           scaleFactor);
+            artboard->draw(&renderer);
+
+            riveContext->flush({
+                .renderTarget = renderTarget,
+            });
+
+            // --- Blit from render FBO to AHardwareBuffer via EGLImageKHR ---
+
+            // Get EGL display
+            EGLDisplay display = eglGetCurrentDisplay();
+
+            // Get the native client buffer from the AHardwareBuffer
+            auto eglGetNativeClientBufferANDROID =
+                reinterpret_cast<PFNEGLGETNATIVECLIENTBUFFERANDROIDPROC>(
+                    eglGetProcAddress("eglGetNativeClientBufferANDROID"));
+            auto eglCreateImageKHR =
+                reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(
+                    eglGetProcAddress("eglCreateImageKHR"));
+            auto eglDestroyImageKHR =
+                reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(
+                    eglGetProcAddress("eglDestroyImageKHR"));
+            auto glEGLImageTargetTexture2DOES =
+                reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(
+                    eglGetProcAddress("glEGLImageTargetTexture2DOES"));
+
+            if (eglGetNativeClientBufferANDROID == nullptr ||
+                eglCreateImageKHR == nullptr ||
+                eglDestroyImageKHR == nullptr ||
+                glEGLImageTargetTexture2DOES == nullptr)
+            {
+                RiveLogE(TAG_CQ,
+                         "Required EGL extensions not available for "
+                         "HardwareBuffer rendering");
+                renderContext->present(nativeSurface);
+                completionPromise->set_value(
+                    DrawResult::EGLImageCreationFailed);
+                return;
+            }
+
+            EGLClientBuffer clientBuffer =
+                eglGetNativeClientBufferANDROID(hardwareBuffer);
+            if (clientBuffer == nullptr)
+            {
+                RiveLogE(TAG_CQ,
+                         "eglGetNativeClientBufferANDROID returned null");
+                renderContext->present(nativeSurface);
+                completionPromise->set_value(
+                    DrawResult::EGLImageCreationFailed);
+                return;
+            }
+
+            // Create EGLImage from the AHardwareBuffer
+            EGLint imageAttribs[] = {EGL_NONE};
+            EGLImageKHR eglImage = eglCreateImageKHR(display,
+                                                      EGL_NO_CONTEXT,
+                                                      EGL_NATIVE_BUFFER_ANDROID,
+                                                      clientBuffer,
+                                                      imageAttribs);
+            if (eglImage == EGL_NO_IMAGE_KHR)
+            {
+                RiveLogE(TAG_CQ, "eglCreateImageKHR failed");
+                renderContext->present(nativeSurface);
+                completionPromise->set_value(
+                    DrawResult::EGLImageCreationFailed);
+                return;
+            }
+
+            // Create a temp texture and bind the EGLImage to it
+            GLuint hwbTexture = 0;
+            glGenTextures(1, &hwbTexture);
+            glBindTexture(GL_TEXTURE_2D, hwbTexture);
+            glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, eglImage);
+
+            // Create a temp FBO and attach the texture as color attachment
+            GLuint hwbFBO = 0;
+            glGenFramebuffers(1, &hwbFBO);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hwbFBO);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,
+                                   GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D,
+                                   hwbTexture,
+                                   0);
+
+            // Bind the render target's FBO as the read source
+            renderTarget->bindDestinationFramebuffer(GL_READ_FRAMEBUFFER);
+
+            // Blit from the render FBO to the HardwareBuffer FBO
+            glBlitFramebuffer(0,
+                              0,
+                              width,
+                              height,
+                              0,
+                              0,
+                              width,
+                              height,
+                              GL_COLOR_BUFFER_BIT,
+                              GL_NEAREST);
+
+            // Ensure GPU completes before returning
+            glFinish();
+
+            // Clean up temp resources
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &hwbFBO);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glDeleteTextures(1, &hwbTexture);
+            eglDestroyImageKHR(display, eglImage);
+
+            renderContext->present(nativeSurface);
+            completionPromise->set_value(DrawResult::Success);
+        };
+
+        commandQueue->draw(handleFromLong<rive::DrawKey>(drawKey), drawWork);
+        auto result = completionPromise->get_future().get();
+
+        switch (result)
+        {
+            case DrawResult::Success:
+                break;
+            case DrawResult::ArtboardNull:
+                env->ThrowNew(
+                    jExceptionClass.get(),
+                    "Failed to draw into hardware buffer: Artboard instance is "
+                    "null");
+                break;
+            case DrawResult::StateMachineNull:
+                env->ThrowNew(
+                    jExceptionClass.get(),
+                    "Failed to draw into hardware buffer: State machine "
+                    "instance is null");
+                break;
+            case DrawResult::EGLImageCreationFailed:
+                env->ThrowNew(
+                    jExceptionClass.get(),
+                    "Failed to draw into hardware buffer: EGLImage creation "
+                    "failed");
                 break;
         }
     }

@@ -436,6 +436,23 @@ interface CommandQueueBridge {
         buffer: ByteArray
     )
 
+    fun cppDrawToHardwareBuffer(
+        pointer: Long,
+        renderContextPointer: Long,
+        surfaceNativePointer: Long,
+        drawKey: Long,
+        artboardHandle: Long,
+        stateMachineHandle: Long,
+        renderTargetPointer: Long,
+        width: Int,
+        height: Int,
+        fit: Byte,
+        alignment: Byte,
+        scaleFactor: Float,
+        clearColor: Int,
+        hardwareBuffer: android.hardware.HardwareBuffer
+    )
+
     fun cppDrawBatch(
         pointer: Long,
         renderContextPointer: Long,
@@ -891,6 +908,23 @@ internal class CommandQueueJNIBridge : CommandQueueBridge {
         scaleFactor: Float,
         clearColor: Int,
         buffer: ByteArray
+    )
+
+    external override fun cppDrawToHardwareBuffer(
+        pointer: Long,
+        renderContextPointer: Long,
+        surfaceNativePointer: Long,
+        drawKey: Long,
+        artboardHandle: Long,
+        stateMachineHandle: Long,
+        renderTargetPointer: Long,
+        width: Int,
+        height: Int,
+        fit: Byte,
+        alignment: Byte,
+        scaleFactor: Float,
+        clearColor: Int,
+        hardwareBuffer: android.hardware.HardwareBuffer
     )
 
     external override fun cppDrawBatch(
