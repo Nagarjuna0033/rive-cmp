@@ -2837,15 +2837,18 @@ extern "C"
             // Bind the render target's FBO as the read source
             renderTarget->bindDestinationFramebuffer(GL_READ_FRAMEBUFFER);
 
-            // Blit from the render FBO to the HardwareBuffer FBO
-            glBlitFramebuffer(0,
-                              0,
-                              width,
-                              height,
-                              0,
-                              0,
-                              width,
-                              height,
+            // Blit from the render FBO to the HardwareBuffer FBO.
+            // Flip Y: OpenGL FBO has origin at bottom-left,
+            // HardwareBuffer/Bitmap has origin at top-left.
+            // Swap dst Y coords (height,0 instead of 0,height) to flip.
+            glBlitFramebuffer(0,            // srcX0
+                              0,            // srcY0
+                              width,        // srcX1
+                              height,       // srcY1
+                              0,            // dstX0
+                              height,       // dstY0 (flipped)
+                              width,        // dstX1
+                              0,            // dstY1 (flipped)
                               GL_COLOR_BUFFER_BIT,
                               GL_NEAREST);
 
