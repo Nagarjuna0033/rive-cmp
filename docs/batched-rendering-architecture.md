@@ -24,8 +24,8 @@ Frame lifecycle:
       ├─ For each item:
       │   ├─ Advance state machine (deltaTime)
       │   ├─ Render artboard → offscreen PBuffer surface
-      │   ├─ Read pixels back (drawToBuffer)
-      │   ├─ Convert RGBA → ARGB → Bitmap
+      │   ├─ GPU blit → HardwareBuffer (zero-copy, no glReadPixels)
+      │   ├─ Bitmap.wrapHardwareBuffer() (GPU ref, no pixel transfer)
       │   └─ Distribute bitmap to composable (mutableStateOf)
 
 2. LAYOUT phase
@@ -53,7 +53,7 @@ RiveBatchSurface (root)
 RiveBatchRenderer (single instance)
 ├── Shared EGL context (1 for all items)
 ├── Per-item offscreen PBuffer surface (lazy-allocated)
-├── Per-item pixel buffer + Bitmap (reused across frames)
+├── Per-item double-buffered HardwareBuffers (zero-copy GPU→Bitmap)
 └── Distributes ImageBitmap to each item via callback
 
 RiveBatchItem (per animation)
@@ -79,17 +79,17 @@ RiveBatchItem (per animation)
 | Metric | Per-Item TextureView | DrawScope (ours) |
 |--------|---------------------|------------------|
 | Render loops | N | 1 |
-| Pixel readback | None | Yes (~0.5ms per item) |
-| RGBA→ARGB conversion | None | Yes (CPU loop) |
-| Main thread blocking | Low | ~N ms per frame (drawToBuffer is synchronous) |
-| GC pressure | High (View allocations) | Near zero (buffers pre-allocated) |
+| Pixel readback | None | None (HardwareBuffer zero-copy) |
+| RGBA→ARGB conversion | None | None (eliminated) |
+| Main thread blocking | Low | Low (GPU blit only) |
+| GC pressure | High (View allocations) | Near zero (HardwareBuffers reused) |
 
 ### Memory
 
 | Metric | Per-Item TextureView | DrawScope (ours) |
 |--------|---------------------|------------------|
 | GPU memory | 20–40MB | 4–8MB |
-| CPU memory (native) | 10–20MB | ~2MB + bitmap buffers |
+| CPU memory (native) | 10–20MB | ~2MB (no CPU pixel buffers) |
 | Total (10 items) | 30–60MB | 6–12MB |
 
 ### User Experience
@@ -107,34 +107,40 @@ RiveBatchItem (per animation)
 2. **5–10x less memory** — Single EGL context + shared pipeline vs. N independent contexts.
 3. **No tab switch delay** — No TextureView creation. Animations appear instantly.
 4. **No scroll jank** — No context switching overhead during scroll.
-5. **Zero GC pressure** — Pixel buffers and bitmaps are pre-allocated and reused.
+5. **Zero GC pressure** — HardwareBuffers are double-buffered and reused. No per-frame allocations.
 6. **Pure Compose** — No Android View interop (`AndroidView`/`TextureView`). Cleaner architecture, easier to maintain.
 7. **Lifecycle-aware** — Render loop automatically pauses when app is backgrounded.
 
 ## Cons
 
-1. **Pixel readback cost** — Each item requires `drawToBuffer` (internally `glReadPixels`) every frame. For 10 small items (~200x100px), this is ~5ms. For larger items or more items, this grows linearly.
+1. **1-frame content delay** — Animation content is rendered in ANIMATION phase and displayed in DRAW phase. Content is technically 1 frame behind. This is imperceptible in practice.
 
-2. **RGBA→ARGB CPU conversion** — OpenGL outputs RGBA bytes; Android Bitmap needs ARGB ints. A CPU loop converts every pixel every frame. For small items this is negligible; for large items it adds ~1–2ms.
+2. **Per-item surfaces** — Each item gets its own offscreen PBuffer surface + 2 HardwareBuffers (double-buffered). While lightweight, many large items could accumulate GPU memory.
 
-3. **Main thread blocking** — `drawToBuffer` is synchronous and blocks the main thread. With many large items, this could eat into the 16.6ms frame budget.
+3. **No dirty-frame optimization yet** — Every item re-renders every frame, even if nothing changed. Static animations waste GPU cycles.
 
-4. **1-frame content delay** — Animation content is rendered in ANIMATION phase and displayed in DRAW phase. Content is technically 1 frame behind. This is imperceptible in practice.
+4. **API 26+ required** — HardwareBuffer needs Android 8.0+. Covers 99%+ of active devices.
 
-5. **Per-item surfaces** — Each item gets its own offscreen PBuffer surface. While lightweight (~80KB for a 200x100 item), many large items could accumulate significant GPU memory.
+## HardwareBuffer Zero-Copy (Implemented)
 
-6. **No dirty-frame optimization yet** — Every item re-renders every frame, even if nothing changed. Static animations waste CPU/GPU cycles.
+The rendering pipeline uses `AHardwareBuffer` + `EGLImageKHR` for zero-copy GPU→Bitmap transfer:
+
+```
+GPU FBO → eglCreateImageKHR → AHardwareBuffer → Bitmap.wrapHardwareBuffer() → Compose drawImage
+```
+
+- **No `glReadPixels`** — GPU texture is directly accessible as a Bitmap
+- **No RGBA→ARGB conversion** — eliminated entirely
+- **Double-buffered** — each item holds 2 HardwareBuffers (ping-pong) to avoid RenderThread race conditions
+- **Per-item CPU memory: ~0** — buffers live on GPU, Bitmap is just a reference
 
 ## Future Optimizations
 
-These are documented but not yet implemented:
-
 | Optimization | What It Solves | Effort |
 |---|---|---|
-| **HardwareBuffer zero-copy** | Eliminates `glReadPixels` and RGBA→ARGB conversion entirely. GPU writes directly to Bitmap. | Medium |
 | **Dirty flow integration** | Only re-render items whose state machines changed. Suspend render loop when idle. | Low |
 | **FBO size bucketing** | Pool 3 FBO sizes instead of per-item. Reduces surface count from N to 3. | Low |
-| **Background thread rendering** | Move `drawToBuffer` calls off main thread. Eliminates main thread blocking. | Medium |
+| **Background thread rendering** | Move render calls off main thread. Eliminates main thread blocking. | Medium |
 
 ## When to Use `batched = true` vs `batched = false`
 
@@ -150,7 +156,7 @@ RiveComponent(resourceName = "hero.riv", batched = false)
 
 | Use Case | Why |
 |----------|-----|
-| Buttons, icons, small controls | Tiny pixel buffers (~240KB each), negligible readback cost |
+| Buttons, icons, small controls | Tiny HardwareBuffers, zero CPU overhead |
 | Cards in lists (LazyColumn) | Perfect scroll sync, no jank, no 200ms creation delay |
 | Tab bars, navigation items | Instant appearance on tab switch |
 | Many items on one screen | 1 EGL context vs N — massive memory savings |
@@ -160,18 +166,15 @@ RiveComponent(resourceName = "hero.riv", batched = false)
 
 | Use Case | Why |
 |----------|-----|
-| Hero animations (full/half screen) | Large pixel readback would block main thread (~5-10ms per item) |
-| Full-screen animated backgrounds | Single large TextureView is more efficient than large pixel copy |
-| Items > ~750x750px | Pixel buffer + bitmap memory becomes significant (~6MB+ per item) |
-| Complex animations with many draw calls | Direct GPU rendering avoids the readback bottleneck |
+| Hero animations (full/half screen) | Single TextureView is simpler for 1-2 large items |
+| Full-screen animated backgrounds | No batching benefit with just 1 item |
+| Only 1-2 items on screen | Batching overhead not justified for few items |
 
 ### Rules of Thumb
 
-- **< 500x500px** → `batched = true` (always)
-- **500–750px on one side** → `batched = true` (usually fine, benchmark if many items)
-- **> 750px on both sides** → `batched = false` (readback cost outweighs batching benefit)
-- **Only 1-2 large items on screen** → `batched = false` (no batching benefit with few items)
-- **10+ small items on screen** → `batched = true` (this is where batching shines)
+- **Multiple items on screen** → `batched = true` (always — this is where batching shines)
+- **Only 1-2 items on screen** → `batched = false` (no batching benefit with few items)
+- **Items in scrollable lists** → `batched = true` (perfect scroll sync, no jank)
 
 ## Key Files
 

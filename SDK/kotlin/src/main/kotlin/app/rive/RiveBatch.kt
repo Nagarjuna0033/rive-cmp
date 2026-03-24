@@ -1,6 +1,7 @@
 package app.rive
 
 import android.graphics.Bitmap
+import android.hardware.HardwareBuffer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -39,8 +40,8 @@ private const val BATCH_DRAW_TAG = "Rive/Batch/Draw"
  * Renders multiple Rive items using per-item offscreen surfaces and Compose DrawScope.
  *
  * Each item gets its own offscreen [RiveSurface] (PBuffer). The render loop draws each
- * artboard to its surface via [CommandQueue.drawToBuffer], converts pixels to a [Bitmap],
- * and distributes the bitmap to the item for display via [Modifier.drawBehind].
+ * artboard to its surface via [CommandQueue.drawToHardwareBuffer], wraps the result as a
+ * zero-copy hardware [Bitmap], and distributes it to the item via [Modifier.drawBehind].
  *
  * This eliminates the TextureView position sync problem: [drawBehind] runs during
  * Compose's DRAW phase (after LAYOUT), so position is always correct.
@@ -57,9 +58,9 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
         var onBitmap: (ImageBitmap) -> Unit,
     ) {
         var surface: RiveSurface? = null
-        var pixels: ByteArray? = null
-        var argbScratch: IntArray? = null
-        var bitmap: Bitmap? = null
+        var hwBufferA: HardwareBuffer? = null
+        var hwBufferB: HardwareBuffer? = null
+        var useA: Boolean = true
     }
 
     private val items = ConcurrentHashMap<Any, ItemState>()
@@ -79,9 +80,10 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
             if (existing.width != width || existing.height != height) {
                 existing.surface?.let { riveWorker.destroyRiveSurface(it) }
                 existing.surface = null
-                existing.pixels = null
-                existing.argbScratch = null
-                existing.bitmap = null // Old bitmap GC'd when RenderThread releases it
+                existing.hwBufferA?.close()
+                existing.hwBufferA = null
+                existing.hwBufferB?.close()
+                existing.hwBufferB = null
             }
             existing.artboardHandle = artboardHandle
             existing.stateMachineHandle = stateMachineHandle
@@ -101,8 +103,9 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
     fun unregister(key: Any) {
         val item = items.remove(key) ?: return
         item.surface?.let { riveWorker.destroyRiveSurface(it) }
-        // Do NOT recycle bitmap — Compose's RenderThread may still be drawing it.
-        // Let GC handle it when no longer referenced.
+        item.hwBufferA?.close()
+        item.hwBufferB?.close()
+        // Bitmaps from wrapHardwareBuffer — let GC handle (RenderThread race)
     }
 
     fun renderFrame(deltaTime: Duration) {
@@ -111,55 +114,57 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
 
             if (item.surface == null) {
                 item.surface = riveWorker.createImageSurface(item.width, item.height)
-                val pixelCount = item.width * item.height
-                item.pixels = ByteArray(pixelCount * 4)
-                item.argbScratch = IntArray(pixelCount)
-                item.bitmap = Bitmap.createBitmap(
-                    item.width, item.height, Bitmap.Config.ARGB_8888
+            }
+            if (item.hwBufferA == null) {
+                item.hwBufferA = HardwareBuffer.create(
+                    item.width, item.height, HardwareBuffer.RGBA_8888, 1,
+                    HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
+                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or
+                        HardwareBuffer.USAGE_GPU_DATA_BUFFER
+                )
+            }
+            if (item.hwBufferB == null) {
+                item.hwBufferB = HardwareBuffer.create(
+                    item.width, item.height, HardwareBuffer.RGBA_8888, 1,
+                    HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
+                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or
+                        HardwareBuffer.USAGE_GPU_DATA_BUFFER
                 )
             }
 
             riveWorker.advanceStateMachine(item.stateMachineHandle, deltaTime)
 
+            val hwBuffer = if (item.useA) item.hwBufferA!! else item.hwBufferB!!
+
             try {
-                riveWorker.drawToBuffer(
+                riveWorker.drawToHardwareBuffer(
                     item.artboardHandle,
                     item.stateMachineHandle,
                     item.surface!!,
-                    item.pixels!!,
+                    hwBuffer,
                     item.width,
                     item.height,
                     item.fit,
                     item.backgroundColor,
                 )
             } catch (e: Exception) {
-                RiveLog.e(BATCH_DRAW_TAG) { "drawToBuffer failed: ${e.message}" }
+                RiveLog.e(BATCH_DRAW_TAG) { "drawToHardwareBuffer failed: ${e.message}" }
                 continue
             }
 
-            val px = item.pixels!!
-            val argb = item.argbScratch!!
-            var byteIdx = 0
-            var pixelIdx = 0
-            val totalPixels = item.width * item.height
-            while (pixelIdx < totalPixels) {
-                val r = px[byteIdx].toInt() and 0xFF
-                val g = px[byteIdx + 1].toInt() and 0xFF
-                val b = px[byteIdx + 2].toInt() and 0xFF
-                val a = px[byteIdx + 3].toInt() and 0xFF
-                argb[pixelIdx] = (a shl 24) or (r shl 16) or (g shl 8) or b
-                byteIdx += 4
-                pixelIdx++
+            val bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, null)
+            if (bitmap != null) {
+                item.onBitmap(bitmap.asImageBitmap())
             }
-            item.bitmap!!.setPixels(argb, 0, item.width, 0, 0, item.width, item.height)
-
-            item.onBitmap(item.bitmap!!.asImageBitmap())
+            item.useA = !item.useA
         }
     }
 
     fun destroy() {
         for ((_, item) in items) {
             item.surface?.let { riveWorker.destroyRiveSurface(it) }
+            item.hwBufferA?.close()
+            item.hwBufferB?.close()
         }
         items.clear()
     }
