@@ -122,6 +122,63 @@ Android's batched rendering solves problems specific to Android's graphics stack
 
 4. **View creation cost** — Android TextureView creation takes ~200ms. iOS UIView creation is near-instant.
 
+## TODO — Remaining Gaps
+
+### High Priority (Parameter Wiring)
+
+These parameters exist in the common `RiveComponent` signature but are not forwarded to the native SDKs.
+
+| Parameter | iOS Status | Android Status | What To Do |
+|-----------|-----------|----------------|------------|
+| `fit` | **Not wired** — ignored, defaults to SDK default | ✅ Wired for batched path only | **iOS:** Pass `fit` to `RiveViewModel` init (supports `fit:` param). Map `RiveFit` enum to RiveRuntime's `RiveFit`. **Android:** Wire to `PoolableRiveView` (non-batched path). |
+| `alignment` | **Not wired** — ignored on both platforms | **Not wired** — ignored on both platforms | **Both:** Pass `alignment` to `RiveViewModel` (iOS) and `RiveBatchItem`/`PoolableRiveView` (Android). Map `RiveAlignment` enum to SDK alignment types. |
+| `autoPlay` | **Hardcoded `true`** | **Hardcoded `true`** | **Both:** Forward the `autoPlay` param instead of hardcoding. Both SDKs support it. Low priority unless app needs paused-on-load animations. |
+
+### Medium Priority (Android Non-Batched Path)
+
+`PoolableRiveView` (used when `batched = false`) is missing several params that `RiveBatchItem` already supports:
+
+| Missing from PoolableRiveView | Notes |
+|-------------------------------|-------|
+| `artboardName` | Batched path wires it; non-batched doesn't |
+| `stateMachineName` | Same — batched only |
+| `fit` | Same — batched only |
+| `alignment` | Not wired anywhere yet |
+
+Only matters if the app uses `batched = false` with multi-artboard files or custom fit/alignment. Since `batched = true` is the default and recommended path, this is lower priority.
+
+### Medium Priority (Event Callbacks)
+
+Only `onTriggerAnimation` is implemented on both platforms. The rest are empty stubs:
+
+| Callback | iOS | Android | Notes |
+|----------|-----|---------|-------|
+| `onTriggerAnimation` | ✅ Listener-based | ✅ Flow-based | Working |
+| `onRiveEventReceived` | ❌ Stub | ❌ Stub | Needs Rive event listener API |
+| `onStateChanged` | ❌ Stub | ❌ Stub | Needs state change listener |
+| `onAnimationEnd` | ❌ Stub | ❌ Stub | Needs animation completion listener |
+| `onError` | ❌ Stub | ⚠️ Provider-level only | Not per-component |
+
+Implement only when the app actually needs these callbacks. Both SDKs support them — it's just wiring work.
+
+### Low Priority (GPU/Performance Optimizations — Android Only)
+
+These are performance optimizations for the Android batched rendering pipeline. Not correctness issues.
+
+| Optimization | What It Solves | Effort | Details |
+|---|---|---|---|
+| **dirtyFlow idle optimization** | Static animations re-render every frame, wasting GPU cycles. Make `dirtyFlow` public in SDK fork so render loop can skip unchanged items. | Low | Suspend render loop when all items are idle. Resume on state machine change. See `project_dirtyflow.md` in memory. |
+| **FBO size bucketing** | Each item gets its own offscreen PBuffer surface. Pool 3 standard sizes (small/medium/large) and reuse. Reduces surface count from N to 3. | Low | Only affects GPU memory, not correctness. |
+| **Background thread rendering** | Render loop runs on main thread during `withFrameNanos`. Moving render calls to a background thread eliminates main thread blocking during `drawToHardwareBuffer`. | Medium | Requires thread-safe bitmap handoff. |
+
+### Not Needed
+
+| Item | Why |
+|------|-----|
+| iOS batched rendering | iOS Core Animation doesn't have Android's EGL context thrashing, TextureView position sync, or GPU memory problems. Per-item RiveView is fine. |
+| iOS HardwareBuffer equivalent | No GPU→CPU pixel transfer on iOS. RiveView renders directly to a CALayer. |
+| iOS view pooling | UIView creation is near-instant on iOS (~1ms vs Android TextureView ~200ms). |
+
 ## File Reference
 
 ### iOS-specific (nativeMain + iosApp)
