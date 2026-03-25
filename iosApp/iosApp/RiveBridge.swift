@@ -16,9 +16,14 @@ class SwiftRiveHandle: IOSRiveHandle {
     private var triggerListenerIds: [UUID] = []
     private var isDestroyed = false
 
-    init(riveModel: RiveModel) {
+    init(riveModel: RiveModel, artboardName: String?, stateMachineName: String?) {
         self.riveModel = riveModel
-        self.riveViewModel = RiveViewModel(riveModel, autoPlay: true)
+        self.riveViewModel = RiveViewModel(
+            riveModel,
+            stateMachineName: stateMachineName,
+            autoPlay: true,
+            artboardName: artboardName
+        )
         super.init()
 
         // Use enableAutoBind to get a VMI that's connected to the rendering pipeline.
@@ -261,7 +266,11 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
         return true
     }
 
-    func createHandle(resourceName: String) -> IOSRiveHandle? {
+    func createHandle(
+        resourceName: String,
+        artboardName: String?,
+        stateMachineName: String?
+    ) -> IOSRiveHandle? {
         guard let assetMap = loadedConfigs[resourceName] else {
             print("[SwiftRiveBridge] No config for: \(resourceName)")
             return nil
@@ -282,7 +291,11 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                     )
                 }
             )
-            return SwiftRiveHandle(riveModel: model)
+            return SwiftRiveHandle(
+                riveModel: model,
+                artboardName: artboardName,
+                stateMachineName: stateMachineName
+            )
         } catch {
             print("[SwiftRiveBridge] Failed to create model for \(resourceName): \(error)")
             return nil
