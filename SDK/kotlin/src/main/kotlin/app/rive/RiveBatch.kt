@@ -242,9 +242,18 @@ fun RiveBatchItem(
 
     var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
 
+    // Bind VMI synchronously during composition so the command is queued
+    // BEFORE any render commands. The CommandQueue processes in order:
+    // bind → advance → draw, so the first rendered frame already has state B.
+    @Suppress("RememberReturnType")
+    remember(stateMachineHandle, viewModelInstance) {
+        viewModelInstance?.let {
+            riveWorker.bindViewModelInstance(stateMachineHandle, it.instanceHandle)
+        }
+    }
+
     LaunchedEffect(stateMachineHandle, viewModelInstance) {
         viewModelInstance ?: return@LaunchedEffect
-        riveWorker.bindViewModelInstance(stateMachineHandle, viewModelInstance.instanceHandle)
         viewModelInstance.dirtyFlow.collect { }
     }
 
