@@ -135,12 +135,15 @@ actual fun RiveComponent(
         onControllerReady?.invoke(controller)
     }
 
-    // Apply config synchronously during composition — before the first render frame.
-    // This ensures state B is set BEFORE the artboard is ever drawn. No flash, no blank.
-    // Re-runs when vmi or config changes.
-    @SuppressLint("RememberReturnType")
-    remember(vmi, config) {
+    // Gate rendering until VMI is bound and config is applied.
+    // Without this, the first frame renders state A before bindViewModelInstance
+    // completes inside RiveBatchItem's LaunchedEffect.
+    var configReady by remember(vmi, config) { mutableStateOf(false) }
+
+    LaunchedEffect(vmi, config) {
+        // Apply config on the VMI — sets state B values
         controller.applyConfig(config)
+        configReady = true
     }
 
     // Trigger flows
@@ -165,19 +168,21 @@ actual fun RiveComponent(
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
     }
 
-    if (batched) {
-        RiveBatchItem(
-            file = riveFile,
-            modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
-    } else {
-        PoolableRiveView(
-            file = riveFile,
-            modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
+    if (configReady) {
+        if (batched) {
+            RiveBatchItem(
+                file = riveFile,
+                modifier = modifier,
+                viewModelInstance = vmi,
+                fit = riveFit,
+            )
+        } else {
+            PoolableRiveView(
+                file = riveFile,
+                modifier = modifier,
+                viewModelInstance = vmi,
+                fit = riveFit,
+            )
+        }
     }
 }
