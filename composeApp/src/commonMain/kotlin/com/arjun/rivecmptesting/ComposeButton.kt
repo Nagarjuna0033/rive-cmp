@@ -29,9 +29,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionContext
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -52,10 +54,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -79,7 +84,7 @@ enum class ButtonAnimationType {
     LIFT,
     SHAKE,
     PULSE,
-    GLOW,
+    SLAM,
     ROTATE,
     COMBO
 }
@@ -93,6 +98,7 @@ fun ComposeAnimations() {
     ) {
         items(ButtonAnimationType.entries) { type ->
             ComposeButton(
+                modifier = Modifier.fillMaxWidth(),
                 text = type.name,
                 animationType = type
             )
@@ -100,171 +106,395 @@ fun ComposeAnimations() {
     }
 }
 
+//@Composable
+//fun ComposeButton(
+//    modifier: Modifier = Modifier,
+//    text: String? = null,
+//    variant: PrimaryButtonVariant = PrimaryButtonVariant.Yellow,
+//    isLoading: Boolean = false,
+//    isEnabled: Boolean = true,
+//    cornerRadius: Dp = 8.dp,
+//    shadowOffsetFactor: Dp = 3.dp,
+//    onClick: () -> Unit = {},
+//    animationType: ButtonAnimationType = ButtonAnimationType.SLAM,
+//) {
+//
+//    val backgroundBrush = when {
+//        !isEnabled -> DisabledButtonBrush
+//        variant is PrimaryButtonVariant.Green -> GreenButtonBrush
+//        variant is PrimaryButtonVariant.LightYello -> LightYelloButtonBrush
+//        else -> YellowButtonBrush
+//    }
+//
+//    val borderBrush = if (isEnabled) EnabledBorderBrush else DisabledBorderBrush
+//
+//    val displayText = if (isLoading) "LOADING…" else text
+//
+//
+//    val scaleX = remember { Animatable(1f) }
+//    val scaleY = remember { Animatable(1f) }
+//    val translationY = remember { Animatable(0f) }
+//    val translationX = remember { Animatable(0f) }
+//    val rotation = remember { Animatable(0f) }
+//    val shadowOffset = remember { Animatable(shadowOffsetFactor.value) }
+//
+//    val animationCollection = remember {
+//        Json.decodeFromString<AnimationCollection>(animationConfig)
+//    }
+//
+//    val animationKey = animationType.name.lowercase()
+//    val scope = rememberCoroutineScope()
+//    var animationJob by remember { mutableStateOf<Job?>(null) }
+//
+//    Box(
+//        modifier = modifier,
+//        contentAlignment = Alignment.TopEnd,
+//
+//    ) {
+//        CompositionLocalProvider(
+//            LocalRippleConfiguration provides null
+//        ) {
+//
+//
+//            Button(
+//                modifier = Modifier
+//                    .graphicsLayer {
+//                        this.scaleX = scaleX.value
+//                        this.scaleY = scaleY.value
+//                        this.translationY = translationY.value
+//                        this.translationX = translationX.value
+//                        this.rotationZ = rotation.value
+//                    }
+//                    .drawBehind {
+//                        val cr = CornerRadius(cornerRadius.toPx())
+//                        val offset = shadowOffset.value * density
+//
+//                        // Border stroke
+//                        drawRoundRect(
+//                            brush = borderBrush,
+//                            topLeft = Offset(0f, 0f),
+//                            size = size,
+//                            cornerRadius = cr,
+//                            style = Stroke(width = 1.5.dp.toPx())
+//                        )
+//
+//                        // Bottom shadow — shifted down by animated offset
+//                        drawRoundRect(
+//                            brush = borderBrush,
+//                            topLeft = Offset(0f, offset + 1.6.dp.toPx()),
+//                            size = size,
+//                            cornerRadius = cr
+//                        )
+//                    }
+//                    .background(
+//                        brush = backgroundBrush,
+//                        shape = RoundedCornerShape(cornerRadius)
+//                    )
+////                .padding(horizontal = 1.dp, vertical = 2.dp)
+//                    .alpha(if (isLoading) 0.6f else 1f),
+////            contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp),
+//                onClick = {
+//                    if (!isEnabled || isLoading) return@Button
+//
+//                    playClickSound()
+//
+//                    animationJob?.cancel()
+//
+//                    val config = animationCollection.animations[animationKey]
+//                    if (config != null) {
+//                        animationJob = scope.launch {
+//                            scaleX.snapTo(1f)
+//                            scaleY.snapTo(1f)
+//                            translationX.snapTo(0f)
+//                            translationY.snapTo(0f)
+//                            rotation.snapTo(0f)
+//                            shadowOffset.snapTo(shadowOffsetFactor.value)
+//
+//                            runAnimation(
+//                                config = config,
+//                                defaults = animationCollection.defaults,
+//                                scaleX = scaleX,
+//                                scaleY = scaleY,
+//                                translationX = translationX,
+//                                translationY = translationY,
+//                                rotation = rotation,
+//                                shadowOffset = shadowOffset
+//                            )
+//
+//                            onClick()
+//                        }
+//                    } else {
+//                        onClick()
+//                    }
+//                },
+//                shape = RoundedCornerShape(cornerRadius),
+//                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+//                interactionSource = remember { MutableInteractionSource() },
+////            contentPadding = PaddingValues(0.dp),
+//            ) {
+//
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(horizontal = 16.dp),
+//                    verticalAlignment = Alignment.CenterVertically,
+//                    horizontalArrangement = Arrangement.Center
+//                ) {
+//
+//                    if (isLoading) {
+//                        CircularProgressIndicator(
+//                            modifier = Modifier.size(12.dp),
+//                            strokeWidth = 2.dp,
+//                            color = ColorTextSecondary
+//                        )
+//                        Spacer(Modifier.width(8.dp))
+//                    }
+//
+//                    displayText?.let {
+//                        Text(text = it, color = Color.Black)
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}
+
+
 @Composable
 fun ComposeButton(
     modifier: Modifier = Modifier,
     text: String? = null,
     variant: PrimaryButtonVariant = PrimaryButtonVariant.Yellow,
+    leadingIcon: Any? = null,
+    trailingText: String? = null,
+    trailingTextColor: Color? = null,
     isLoading: Boolean = false,
     isEnabled: Boolean = true,
     cornerRadius: Dp = 8.dp,
-    shadowOffsetFactor: Dp = 1.5.dp,
+    shadowOffsetFactor: Dp = 4.dp,                                         // CHANGED: was 1.5.dp, now 4.dp for slam travel
+    floatingBadge: Any? = null,
+    floatingBadgeSize: Dp = 30.dp,
+    topLeftBadgeOffsetX: Dp = 6.dp,
+    topLeftBadgeOffsetY: Dp = (-24).dp,
+    floatingBadgeAlignment: BadgeAlignment = BadgeAlignment.TopEnd(),
     onClick: () -> Unit = {},
-    animationType: ButtonAnimationType = ButtonAnimationType.COMBO,
+    iconName: String? = null,
+    selection: String? = null,
+    animationType: ButtonAnimationType = ButtonAnimationType.SLAM,          // CHANGED: default to SLAM
 ) {
 
-    val haptic = LocalHapticFeedback.current
-
-    val backgroundBrush = when {
-        !isEnabled -> DisabledButtonBrush
-        variant is PrimaryButtonVariant.Green -> GreenButtonBrush
-        variant is PrimaryButtonVariant.LightYello -> LightYelloButtonBrush
-        else -> YellowButtonBrush
-    }
-
-    val borderBrush = if (isEnabled) EnabledBorderBrush else DisabledBorderBrush
-
-    val displayText = if (isLoading) "LOADING…" else text
-
-
+    // Animation state
     val scaleX = remember { Animatable(1f) }
     val scaleY = remember { Animatable(1f) }
     val translationY = remember { Animatable(0f) }
     val translationX = remember { Animatable(0f) }
     val rotation = remember { Animatable(0f) }
-
-    val animationCollection = remember {
-        Json.decodeFromString<AnimationCollection>(animationConfig)
-    }
+    val shadowOffset = remember { Animatable(shadowOffsetFactor.value) }    // ADDED: animated shadow
 
     val animationKey = animationType.name.lowercase()
+    val animationState = remember { AnimationState() }
+    val engine = remember {
+        AnimationEngine(
+            Json.decodeFromString(animationConfig)
+        )
+    }
     val scope = rememberCoroutineScope()
+
+
+    var animationJob by remember { mutableStateOf<Job?>(null) }
+
+    val backgroundBrush by remember(isEnabled, variant) {
+        mutableStateOf(
+            when {
+                !isEnabled -> DisabledButtonBrush
+                variant is PrimaryButtonVariant.Green -> GreenButtonBrush
+                variant is PrimaryButtonVariant.LightYello -> LightYelloButtonBrush
+                else -> YellowButtonBrush
+            }
+        )
+    }
+
+    val borderBrush by remember(isEnabled) {
+        mutableStateOf(
+            if (isEnabled) EnabledBorderBrush else DisabledBorderBrush
+        )
+    }
+
+    val displayText = if (isLoading) "LOADING…" else text
+
+
+    val guardedClick = remember(onClick, isEnabled, isLoading, text) {
+        {
+            // Cancel any running animation first
+            animationJob?.cancel()
+
+            if (!isEnabled && !isLoading) {
+                // Disabled state: play shake animation
+                scope.launch {
+                    engine.play(
+                        name = ButtonAnimationType.SHAKE.name.lowercase(),
+                        state = animationState,
+                        shadowDefault = shadowOffsetFactor.value
+                    )
+                    onClick()
+                }
+            }
+
+            if (isEnabled && !isLoading) {
+                playClickSound()
+
+                animationJob = scope.launch {
+                    // Reset all values before starting
+                    scope.launch {
+                        engine.play(
+                            name = animationType.name.lowercase(),
+                            state = animationState,
+                            shadowDefault = shadowOffsetFactor.value
+                        )
+                        onClick()
+                    }
+
+                    // onClick fires AFTER animation completes
+                    onClick()
+                }
+            }
+        }
+    }
 
     Box(
         modifier = modifier,
         contentAlignment = Alignment.TopEnd
     ) {
-        Button(
-            modifier = Modifier
-                .graphicsLayer {
-                this.scaleX = scaleX.value
-                this.scaleY = scaleY.value
-                this.translationY = translationY.value
-                this.translationX = translationX.value
-                this.rotationZ = rotation.value
-                }
-                .drawBehind {
-                    val cr = CornerRadius(cornerRadius.toPx())
-                    val offset = shadowOffsetFactor.toPx()
+        // ADDED: Disable ripple since we have custom animations
+        CompositionLocalProvider(
+            LocalRippleConfiguration provides null
+        ) {
+            Button(
+                modifier = Modifier
+                    .graphicsLayer {
+                        this.scaleX = animationState.scaleX.value
+                        this.scaleY = animationState.scaleY.value
+                        this.translationY = animationState.translationY.value
+                        this.translationX = animationState.translationX.value
+                        rotationZ = animationState.rotation.value
+                    }
+                    .drawBehind {
+                        val cr = CornerRadius(cornerRadius.toPx())
+                        val offset = shadowOffset.value * density              // CHANGED: animated shadow offset
 
-                    drawRoundRect(
-                        brush = borderBrush,
-                        size = size,
-                        cornerRadius = cr,
-                        style = Stroke(width = 1.5.dp.toPx())
-                    )
+                        // Border stroke
+                        drawRoundRect(
+                            brush = borderBrush,
+                            topLeft = Offset(0f, 0f),
+                            size = size,
+                            cornerRadius = cr,
+                            style = Stroke(width = 1.5.dp.toPx())
+                        )
 
-                    drawRoundRect(
-                        brush = borderBrush,
-                        topLeft = Offset(0f, offset + 1.6.dp.toPx()),
-                        size = size,
-                        cornerRadius = cr
-                    )
-                }
-                .background(
-                    brush = backgroundBrush,
-                    shape = RoundedCornerShape(cornerRadius)
-                )
-                .padding(horizontal = 1.dp, vertical = 2.dp)
-                .alpha(if (isLoading) 0.6f else 1f),
-
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
-                playClickSound()
-
-                val config = animationCollection.animations[animationKey]
-                if (config != null) {
-                    scope.launch {
-                        runAnimation(
-                            config = config,
-                            defaults = animationCollection.defaults,
-                            scaleX = scaleX,
-                            scaleY = scaleY,
-                            translationX = translationX,
-                            translationY = translationY,
-                            rotation = rotation
+                        // Bottom shadow — shifted down by animated offset
+                        drawRoundRect(
+                            brush = borderBrush,
+                            topLeft = Offset(0f, offset + 1.6.dp.toPx()),
+                            size = size,
+                            cornerRadius = cr
                         )
                     }
-                }
-
-                onClick()
-            },
-            shape = RoundedCornerShape(cornerRadius),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-            contentPadding = PaddingValues(0.dp),
-        ) {
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        strokeWidth = 2.dp,
-                        color = ColorTextSecondary
+                    .background(
+                        brush = backgroundBrush,
+                        shape = RoundedCornerShape(cornerRadius)
                     )
-                    Spacer(Modifier.width(8.dp))
-                }
+                    .alpha(if (isLoading) 0.6f else 1f),
+                onClick = guardedClick,
+                shape = RoundedCornerShape(cornerRadius),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                interactionSource = remember { MutableInteractionSource() },   // ADDED: for ripple suppression
+                contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp),  // CHANGED: moved from modifier padding
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    // Leading icon / spinner
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 2.dp,
+                            color = ColorTextSecondary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    } else if (leadingIcon != null) {
+//                        BeBettaAsyncImage(
+//                            modifier = Modifier.size(20.dp),
+//                            model = leadingIcon
+//                        )
+                        Spacer(Modifier.width(3.dp))
+                    }
 
-                displayText?.let {
-                    Text(text = it, color = Color.Black)
+                    when {
+                        displayText != null -> Text(
+                            text = displayText,
+                        )
+                    }
+                    // Trailing text
+                    if (trailingText != null) {
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text = trailingText,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+class AnimationEngine(
+    private val collection: AnimationCollection
+) {
+
+    suspend fun play(
+        name: String,
+        state: AnimationState,
+        shadowDefault: Float = 0f
+    ) {
+        val config = collection.animations[name] ?: return
+
+        val registry = AnimationRegistry(state)
+
+        state.reset(shadowDefault)
+
+        runAnimation(config, collection.defaults, registry)
+    }
+}
 
 suspend fun runAnimation(
     config: AnimationConfig,
     defaults: DefaultConfig,
-    scaleX: Animatable<Float, AnimationVector1D>,
-    scaleY: Animatable<Float, AnimationVector1D>,
-    translationX: Animatable<Float, AnimationVector1D>,
-    translationY: Animatable<Float, AnimationVector1D>,
-    rotation: Animatable<Float, AnimationVector1D>
+    registry: AnimationRegistry
 ) {
 
     suspend fun runStep(step: AnimationStep) {
+        val animatable = registry.get(step.property) ?: return
+
         val duration = step.duration ?: defaults.duration
         val spec = (step.easing ?: defaults.easing).toSpec(duration)
 
         if (step.delay > 0) delay(step.delay.toLong())
 
-        when (step.property) {
-            "scaleX" -> scaleX.animateTo(step.to, spec)
-            "scaleY" -> scaleY.animateTo(step.to, spec)
-            "translationX" -> translationX.animateTo(step.to, spec)
-            "translationY" -> translationY.animateTo(step.to, spec)
-            "rotation" -> rotation.animateTo(step.to, spec)
-        }
+        animatable.animateTo(step.value, spec)
     }
 
     for (group in config.steps) {
         repeat(group.repeat) {
             when (group.mode) {
-
                 "parallel" -> coroutineScope {
                     group.items.forEach { step ->
                         launch { runStep(step) }
                     }
                 }
-
                 "sequence" -> {
                     group.items.forEach { step ->
                         runStep(step)
@@ -275,6 +505,42 @@ suspend fun runAnimation(
     }
 }
 
+
+class AnimationState {
+
+    val scaleX = Animatable(1f)
+    val scaleY = Animatable(1f)
+    val translationX = Animatable(0f)
+    val translationY = Animatable(0f)
+    val rotation = Animatable(0f)
+    val shadowOffset = Animatable(0f)
+
+    suspend fun reset(shadowDefault: Float) {
+        scaleX.snapTo(1f)
+        scaleY.snapTo(1f)
+        translationX.snapTo(0f)
+        translationY.snapTo(0f)
+        rotation.snapTo(0f)
+        shadowOffset.snapTo(shadowDefault)
+    }
+}
+
+
+class AnimationRegistry(
+    private val state: AnimationState
+) {
+
+    private val map = mapOf(
+        "scaleX" to state.scaleX,
+        "scaleY" to state.scaleY,
+        "translationX" to state.translationX,
+        "translationY" to state.translationY,
+        "rotation" to state.rotation,
+        "shadowOffset" to state.shadowOffset
+    )
+
+    fun get(property: String) = map[property]
+}
 
 @Serializable
 data class AnimationCollection(
@@ -304,7 +570,7 @@ data class AnimationStepGroup(
 @Serializable
 data class AnimationStep(
     val property: String,
-    val to: Float,
+    val value: Float,
     val duration: Int? = null,
     val easing: EasingConfig? = null,
     val delay: Int = 0
@@ -346,8 +612,13 @@ val animationConfig = """
               "items": [
                 {
                   "property": "scaleY",
-                  "to": 0.9,
-                  "duration": 250
+                  "value": 0.88,
+                  "duration": 180
+                },
+                {
+                  "property": "scaleX",
+                  "value": 1.05,
+                  "duration": 180
                 }
               ]
             },
@@ -356,25 +627,35 @@ val animationConfig = """
               "items": [
                 {
                   "property": "scaleY",
-                  "to": 1.0,
+                  "value": 1.0,
+                  "duration": 400,
                   "easing": {
                     "type": "spring",
-                    "dampingRatio": 0.9,
-                    "stiffness": 500
+                    "dampingRatio": 0.45,
+                    "stiffness": 300
+                  }
+                },
+                {
+                  "property": "scaleX",
+                  "value": 1.0,
+                  "duration": 400,
+                  "easing": {
+                    "type": "spring",
+                    "dampingRatio": 0.45,
+                    "stiffness": 300
                   }
                 }
               ]
             }
           ]
         },
-
         "bounce": {
           "steps": [
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleX", "to": 0.9 },
-                { "property": "scaleY", "to": 0.9 }
+                { "property": "scaleX", "value": 0.9 },
+                { "property": "scaleY", "value": 0.9 }
               ]
             },
             {
@@ -382,12 +663,12 @@ val animationConfig = """
               "items": [
                 {
                   "property": "scaleX",
-                  "to": 1.1,
+                  "value": 1.1,
                   "easing": { "type": "spring", "dampingRatio": 0.4 }
                 },
                 {
                   "property": "scaleY",
-                  "to": 1.1,
+                  "value": 1.1,
                   "easing": { "type": "spring", "dampingRatio": 0.4 }
                 }
               ]
@@ -395,13 +676,12 @@ val animationConfig = """
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleX", "to": 1.0 },
-                { "property": "scaleY", "to": 1.0 }
+                { "property": "scaleX", "value": 1.0 },
+                { "property": "scaleY", "value": 1.0 }
               ]
             }
           ]
         },
-
         "shake": {
           "steps": [
             {
@@ -410,13 +690,13 @@ val animationConfig = """
               "items": [
                 {
                   "property": "translationX",
-                  "to": -12,
-                  "duration": 40
+                  "value": -8,
+                  "duration": 45
                 },
                 {
                   "property": "translationX",
-                  "to": 12,
-                  "duration": 40
+                  "value": 8,
+                  "duration": 45
                 }
               ]
             },
@@ -425,72 +705,109 @@ val animationConfig = """
               "items": [
                 {
                   "property": "translationX",
-                  "to": 0,
-                  "duration": 40
+                  "value": 0,
+                  "duration": 80
                 }
               ]
             }
           ]
         },
-
         "pulse": {
           "steps": [
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleX", "to": 1.08, "duration": 150 },
-                { "property": "scaleY", "to": 1.08, "duration": 150 }
+                { "property": "scaleX", "value": 1.08, "duration": 150 },
+                { "property": "scaleY", "value": 1.08, "duration": 150 }
               ]
             },
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleX", "to": 1.0, "duration": 150 },
-                { "property": "scaleY", "to": 1.0, "duration": 150 }
+                { "property": "scaleX", "value": 1.0, "duration": 150 },
+                { "property": "scaleY", "value": 1.0, "duration": 150 }
               ]
             }
           ]
         },
-
         "rotate": {
           "steps": [
             {
               "mode": "sequence",
               "items": [
-                { "property": "rotation", "to": 10 },
-                { "property": "rotation", "to": -10 },
-                { "property": "rotation", "to": 0 }
+                { "property": "rotation", "value": 10 },
+                { "property": "rotation", "value": -10 },
+                { "property": "rotation", "value": 0 }
               ]
             }
           ]
         },
-
         "lift": {
           "steps": [
             {
               "mode": "sequence",
               "items": [
-                { "property": "translationY", "to": -12 },
-                { "property": "translationY", "to": 0 }
+                {
+                  "property": "translationY",
+                  "value": -14,
+                  "duration": 140
+                },
+                {
+                  "property": "translationY",
+                  "value": 0,
+                  "easing": {
+                    "type": "spring",
+                    "dampingRatio": 0.45,
+                    "stiffness": 300
+                  }
+                }
               ]
             }
           ]
         },
-
         "glow": {
           "steps": [
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleX", "to": 1.05, "duration": 100 },
-                { "property": "scaleY", "to": 1.05, "duration": 100 }
+                { "property": "scaleX", "value": 1.05, "duration": 100 },
+                { "property": "scaleY", "value": 1.05, "duration": 100 }
               ]
             },
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleX", "to": 1.0, "duration": 100 },
-                { "property": "scaleY", "to": 1.0, "duration": 100 }
+                { "property": "scaleX", "value": 1.0, "duration": 100 },
+                { "property": "scaleY", "value": 1.0, "duration": 100 }
+              ]
+            }
+          ]
+        },
+        "slam": {
+          "steps": [
+            {
+              "mode": "parallel",
+              "items": [
+                { "property": "scaleY", "value": 0.92, "duration": 140 },
+                { "property": "translationY", "value": 4, "duration": 140 },
+                { "property": "shadowOffset", "value": 0, "duration": 140 }
+              ]
+            },
+            {
+              "mode": "parallel",
+              "items": [
+                {
+                  "property": "scaleY", "value": 1.0,
+                  "easing": { "type": "spring", "dampingRatio": 0.48, "stiffness": 400 }
+                },
+                {
+                  "property": "translationY", "value": 0,
+                  "easing": { "type": "spring", "dampingRatio": 0.48, "stiffness": 400 }
+                },
+                {
+                  "property": "shadowOffset", "value": 3,
+                  "easing": { "type": "spring", "dampingRatio": 0.9, "stiffness": 100 }
+                }
               ]
             }
           ]
