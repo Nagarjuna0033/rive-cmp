@@ -230,14 +230,16 @@ fun RiveBatchItem(
     viewModelInstance: ViewModelInstance? = null,
     fit: Fit = Fit.Contain(),
     backgroundColor: Int = Color.Transparent.toArgb(),
+    artboardName: String? = null,
+    stateMachineName: String? = null,
 ) {
     val renderer = LocalRiveBatchRenderer.current
         ?: error("RiveBatchItem must be placed inside a RiveBatchSurface")
 
     val riveWorker = file.riveWorker
-    val artboardToUse = rememberArtboard(file)
+    val artboardToUse = rememberArtboard(file, artboardName)
     val artboardHandle = artboardToUse.artboardHandle
-    val stateMachineToUse = rememberStateMachine(artboardToUse)
+    val stateMachineToUse = rememberStateMachine(artboardToUse, stateMachineName)
     val stateMachineHandle = stateMachineToUse.stateMachineHandle
 
     var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
