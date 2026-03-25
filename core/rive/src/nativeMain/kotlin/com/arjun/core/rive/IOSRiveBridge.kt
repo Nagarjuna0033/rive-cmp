@@ -21,7 +21,11 @@ open class IOSRiveHandle {
 // Factory interface — implemented in Swift
 interface IOSRiveBridge {
     fun preloadFiles(configs: List<RiveFileConfig>): Boolean
-    fun createHandle(resourceName: String): IOSRiveHandle?
+    fun createHandle(
+        resourceName: String,
+        artboardName: String? = null,
+        stateMachineName: String? = null,
+    ): IOSRiveHandle?
     fun isFileLoaded(resourceName: String): Boolean
     fun clearAll()
 }
