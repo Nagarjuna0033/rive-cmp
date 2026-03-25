@@ -19,6 +19,8 @@ class MainActivity : ComponentActivity() {
             .initializeComponent(RiveInitializer::class.java)
 
         Rive.init(this)
+        appContext = applicationContext
+        initSound()
 
         setContent {
             App()

@@ -7,6 +7,8 @@ interface RiveController {
     fun setEnum(propertyName: String, value: String)
     fun setBoolean(propertyName: String, value: Boolean)
     fun setNumber(propertyName: String, value: Float)
+
+    suspend fun setImageFromUrl(propertyName: String, url: String)
     fun fireTrigger(triggerName: String)
 
     fun applyConfig(config: RiveItemConfig) {
@@ -18,6 +20,7 @@ interface RiveController {
 
     fun destroy()
 }
+
 
 // ── Callbacks ──────────────────────────────────────────────────────────
 interface RiveEventCallback {

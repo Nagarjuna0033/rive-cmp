@@ -43,6 +43,8 @@ fun App() {
 private object Routes {
     const val MAIN          = "main"
     const val NOTIFICATIONS = "notifications"
+
+    const val COMPOSE_ANIMATIONS = "compose_animations"
 }
 
 // ── Root nav host ─────────────────────────────────────────────────────────────
@@ -69,6 +71,11 @@ fun AppNav() {
 private fun MainScreen(onNotificationClick: () -> Unit) {
     var selectedTab by remember { mutableStateOf(0) }
 
+    if (selectedTab == 3) {
+        MatchMakingScreen(onBack = { selectedTab = 0 })
+        return
+    }
+
     Scaffold(
         topBar = {
             AppTopBar(onNotificationClick = onNotificationClick)
@@ -87,6 +94,18 @@ private fun MainScreen(onNotificationClick: () -> Unit) {
                     icon = { Text("🏆") },
                     label = { Text("Contests") }
                 )
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = { Text("🤖") },
+                    label = { Text("Compose") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    icon = { Text("🎯") },
+                    label = { Text("PvP") }
+                )
             }
         }
     ) { padding ->
@@ -98,6 +117,8 @@ private fun MainScreen(onNotificationClick: () -> Unit) {
             when (selectedTab) {
                 0 -> ContestLargeCards(contests = homeTabData, tabTag = "home")
                 1 -> ContestLargeCards(contests = contestsTabData, tabTag = "contests")
+                2 -> ComposeAnimations()
+                3 -> MatchMakingScreen()
             }
         }
     }

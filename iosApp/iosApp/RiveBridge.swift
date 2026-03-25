@@ -160,6 +160,43 @@ class SwiftRiveHandle: IOSRiveHandle {
         }
     }
 
+    // override func setImageProperty(name: String, pngBytes: KotlinByteArray) {
+    //     // Convert KotlinByteArray → Data
+    //     let length = Int(pngBytes.size)
+    //     var bytes = [UInt8](repeating: 0, count: length)
+    //     for i in 0..<length {
+    //         bytes[i] = UInt8(bitPattern: pngBytes.get(index: Int32(i)))
+    //     }
+    //     let data = Data(bytes)
+    //
+    //     guard let uiImage = UIImage(data: data) else {
+    //         print("[SwiftRiveHandle] Failed to create UIImage for \(name)")
+    //         return
+    //     }
+    //
+    //     executeWithVMI { [weak self] in
+    //         guard let self, let vmi = self.boundVMI else { return }
+    //
+    //         if let prop = vmi.imageProperty(fromPath: name) {
+    //             // Rive iOS SDK — set image via VMI image property
+    //             if let cgImage = uiImage.cgImage {
+    //                 let riveImage = self.riveViewModel.riveView?(
+    //                     UIImagePNGRepresentation(uiImage) ?? data
+    //                 )
+    //                 if let riveImage = riveImage {
+    //                     prop.value = riveImage
+    //                     self.riveViewModel.riveView?.advance(delta: 0)
+    //                     print("[SwiftRiveHandle] Image set: \(name)")
+    //                 } else {
+    //                     print("[SwiftRiveHandle] Failed to decode RiveRenderImage for \(name)")
+    //                 }
+    //             }
+    //         } else {
+    //             print("[SwiftRiveHandle] Image property not found: \(name)")
+    //         }
+    //     }
+    // }
+
     override func destroy() {
         isDestroyed = true
         pendingOperations.removeAll()

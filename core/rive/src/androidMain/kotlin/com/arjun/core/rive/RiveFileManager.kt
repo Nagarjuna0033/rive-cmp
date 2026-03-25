@@ -1,6 +1,7 @@
 package com.arjun.core.rive
 
 import android.content.Context
+import android.util.Log
 import app.rive.RiveFile
 import app.rive.RiveFileSource
 import app.rive.Result
@@ -153,7 +154,7 @@ class AndroidRiveFileManager(
 
         val bytes = loadFileBytes(fileName)
         loadedBytes[fileName] = bytes
-
+        Log.d("RiveFileManager", "Loaded bytes for $fileName")
         return when (
             val result = RiveFile.fromSource(
                 source = RiveFileSource.Bytes(bytes),

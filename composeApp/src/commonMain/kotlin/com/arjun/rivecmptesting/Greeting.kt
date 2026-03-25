@@ -1,5 +1,8 @@
 package com.arjun.rivecmptesting
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -152,33 +156,45 @@ fun PrimaryButton(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    RiveComponent(
-        resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
-        instanceKey = "$tabTag-${contest.id}",
-        modifier = Modifier.height(50.dp).width(150.dp),
-        config = RiveItemConfigs.primaryButton(
-                PrimaryButtonParams(
-                    text = contest.name,
-                    showCash = contest.isCash,
-                    showLock = contest.isLocked,
-                    showCoin = contest.isCoin,
-                    isLoading = isLoading,
-                    isEnabled = true,
-                    buttonColor = "Yellow"
-                )
-            ),
-            viewModelName = "Button",
-            eventCallback = object : RiveEventCallback {
-                override fun onTriggerAnimation(animationName: String) {
+
+    val params = remember(contest, isLoading) {
+        PrimaryButtonParams(
+            text = contest.name,
+            showCash = contest.isCash,
+            showLock = contest.isLocked,
+            showCoin = contest.isCoin,
+            isLoading = isLoading,
+            isEnabled = true,
+            buttonColor = "Yellow"
+        )
+    }
+
+    val config = remember(params) {
+        RiveItemConfigs.primaryButton(params)
+    }
+
+    val eventCallback = remember("$tabTag-${contest.id}") {
+        object : RiveEventCallback {
+            override fun onTriggerAnimation(animationName: String) {
+                if (animationName == RiveProps.PrimaryButton.PRESS) {
                     scope.launch {
                         isLoading = true
                         delay(2000)
                         isLoading = false
                     }
                 }
-            },
-    )
+            }
+        }
+    }
 
+    RiveComponent(
+        resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
+        instanceKey = "$tabTag-${contest.id}",
+        modifier = Modifier.height(50.dp).width(150.dp),
+        config = config,
+        viewModelName = "Button",
+        eventCallback = eventCallback,
+    )
 
 }
 
@@ -377,6 +393,14 @@ fun LargeCardContent(
             Spacer(modifier = Modifier.width(8.dp))
 
             ctaContent()
+
+//            ComposeButton(
+//                modifier = Modifier
+//                    .height(52.dp)
+//                    .width(205.dp),
+//                text = "text",
+//                animationType = ButtonAnimationType.COMBO
+//            )
         }
     }
 }

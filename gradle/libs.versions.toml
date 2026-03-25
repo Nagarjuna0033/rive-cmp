@@ -20,7 +20,11 @@ runner = "1.5.2"
 core = "1.5.0"
 material = "1.13.0"
 lifecycleProcess = "2.10.0"
+kotlinxSerializationJson = "1.9.0"
 ui = "1.10.5"
+koin-bom = "4.1.1"  # Stable version
+backhandler = "1.9.1"
+
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -48,7 +52,16 @@ androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
-
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin-bom" }
+koin-core = { module = "io.insert-koin:koin-core" }
+koin-android = { module = "io.insert-koin:koin-android" }
+koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose" }
+koin-compose = { module = "io.insert-koin:koin-compose" }
+koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel" }
+koin-ktor = { module = "io.insert-koin:koin-ktor" }
+koin-test = { module = "io.insert-koin:koin-test" }
+ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "backhandler" }
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
@@ -59,3 +72,4 @@ androidTest = { id = "com.android.test", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 androidKotlinMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidLint = { id = "com.android.lint", version.ref = "agp" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

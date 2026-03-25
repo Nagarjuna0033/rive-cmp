@@ -12,6 +12,9 @@ open class IOSRiveHandle {
     open fun setNumberProperty(name: String, value: Float) {}
     open fun fireTrigger(name: String) {}
     open fun addTriggerListener(name: String, callback: () -> Unit) {}
+
+    open fun setImageProperty(name: String, pngBytes: ByteArray) {}
+
     open fun destroy() {}
 }
 

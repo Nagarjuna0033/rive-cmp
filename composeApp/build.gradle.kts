@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -32,6 +33,8 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
 
+            implementation(libs.koin.android)
+            implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
             // Rive SDK provided transitively via core:rive module
             // Transitive dependencies of the local .aar (not auto-resolved)
             implementation("androidx.startup:startup-runtime:1.2.0")
@@ -48,11 +51,16 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-
-            implementation("androidx.navigation:navigation-compose:2.9.7")
             api(projects.core.rive)
+            implementation(libs.kotlinx.serialization.json)
+            implementation("io.insert-koin:koin-core:4.2.0")
+            implementation("io.insert-koin:koin-compose:4.2.0")
+            implementation("io.insert-koin:koin-compose-viewmodel:4.2.0")
+            implementation("io.coil-kt.coil3:coil-compose:3.4.0")
+            implementation(libs.ui.backhandler)
 
-//            implementation("dev.muazkadan:rive-cmp:0.3.4")
+            implementation("org.jetbrains.androidx.navigation:navigation-compose:2.9.2")
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

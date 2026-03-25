@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.androidLint)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -89,6 +90,11 @@ kotlin {
                 implementation(libs.compose.uiToolingPreview)
                 implementation(libs.androidx.lifecycle.viewmodelCompose)
                 implementation(libs.androidx.lifecycle.runtimeCompose)
+
+                implementation(project.dependencies.platform(libs.koin.bom))
+                implementation("io.insert-koin:koin-core:4.2.0")
+
+                implementation("io.coil-kt.coil3:coil-compose:3.4.0")
             }
         }
 
@@ -108,6 +114,8 @@ kotlin {
                 api(files("libs/rive-android-local.aar"))
                 implementation(libs.androidx.lifecycle.process)
                 implementation(libs.androidx.ui)
+                implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
+                implementation("io.coil-kt.coil3:coil-svg:3.4.0")
                 // Transitive dependencies of the local .aar (not auto-resolved)
 //                implementation("androidx.startup:startup-runtime:1.2.0")
 //                implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")

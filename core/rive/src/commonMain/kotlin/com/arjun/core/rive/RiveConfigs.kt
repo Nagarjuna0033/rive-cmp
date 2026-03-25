@@ -8,6 +8,8 @@ object RiveConfigs {
         const val PRIMARY_BUTTON    = "primary_button_v1.2.riv"
 
         const val DOWNLOAD_BUTTON = "download_button.riv"
+
+        const val MATCHMAKING = "matchmaking1.riv"
     }
 
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
@@ -21,6 +23,8 @@ object RiveConfigs {
         const val IMAGE_AD = "Ad Icon-5654378.webp"
 
         const val FONT = "Inter-995149"
+
+        const val MATCHMAKING_FONT = "Outfit-4229794"
     }
 
     // ── Raw resource names (without extension) ─────────────────────────
@@ -54,10 +58,18 @@ object RiveConfigs {
         )
     )
 
+    val matchMaking = RiveFileConfig(
+        resourceName = Files.MATCHMAKING,
+        assets = listOf(
+            RiveAssetConfig(AssetIds.MATCHMAKING_FONT, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT)
+        )
+    )
+
     // ── Preload everything at app start ────────────────────────────────
     val allConfigs = listOf(
         contestButton,
-        downloadButton
+//        downloadButton,
+        matchMaking
     )
 }
 
@@ -95,6 +107,18 @@ object RiveProps {
         const val LOADING = "Loading"
         const val WIGGLE = "Wiggle"
     }
+
+    object MatchMaking {
+        const val CURRENT_USER_NAME = "Current User Name"
+        const val OPPONENT_USER_NAME = "Opponent User Name"
+        const val CURRENT_USER_IMAGE = "Current User Image"
+        const val OPPONENT_USER_IMAGE = "Opponent User Image"
+
+        const val MATCH_FOUND = "Match Found"
+
+        const val INTRO = "Intro"
+        const val OUTRO = "Outro"
+    }
 }
 
 
@@ -113,6 +137,14 @@ data class PrimaryButtonParams(
 
     val isLoading: Boolean = false,
     val isEnabled: Boolean = false,
+)
+
+
+data class MatchMakingParams(
+    val currentUserName: String,
+    val opponentUserName: String,
+
+    val isMatchFound: Boolean = false,
 )
 object RiveItemConfigs {
 
@@ -146,6 +178,22 @@ object RiveItemConfigs {
             RiveProps.PrimaryButton.PRESS,
             RiveProps.PrimaryButton.LOADING,
             RiveProps.PrimaryButton.WIGGLE,
+        )
+    )
+
+    fun matchMaking(params: MatchMakingParams) = RiveItemConfig(
+        strings = mapOf(
+            RiveProps.MatchMaking.CURRENT_USER_NAME to params.currentUserName,
+            RiveProps.MatchMaking.OPPONENT_USER_NAME to params.opponentUserName
+        ),
+
+        booleans = mapOf(
+            RiveProps.MatchMaking.MATCH_FOUND to params.isMatchFound
+        ),
+
+        triggers = listOf(
+            RiveProps.MatchMaking.INTRO,
+            RiveProps.MatchMaking.OUTRO
         )
     )
 }

@@ -1,6 +1,10 @@
 package com.arjun.core.rive
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -14,14 +18,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.Fit
+import app.rive.ImageAsset
+import app.rive.Rive
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
+import app.rive.core.CommandQueue
 import app.rive.rememberRiveWorker
+import app.rive.rememberViewModelInstance
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
 import com.arjun.core.rive.utils.RiveAlignment
 import com.arjun.core.rive.utils.RiveFit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.mp.KoinPlatform.getKoin
+import java.io.ByteArrayOutputStream
 import app.rive.runtime.kotlin.core.Rive as RiveCore
 
 @SuppressLint("RememberReturnType")
@@ -51,9 +65,9 @@ actual fun RiveProvider(
         AndroidRiveFileManager(context, riveWorker)
     }
 
-    val runtime = remember(fileManager) {
-        RiveRuntime(fileManager)
-    }
+//    val runtime = remember(fileManager) {
+//        RiveRuntime(fileManager)
+//    }
 
     var loadState by remember { mutableStateOf<RiveLoadState>(RiveLoadState.Loading) }
 
@@ -67,16 +81,16 @@ actual fun RiveProvider(
         }
     }
 
-    DisposableEffect(runtime) {
-        onDispose {
-            runtime.clear()
-            fileManager.clearAll()
-        }
-    }
+//    DisposableEffect(runtime) {
+//        onDispose {
+//            runtime.clear()
+//            fileManager.clearAll()
+//        }
+//    }
 
     CompositionLocalProvider(
         LocalRiveFileManager provides fileManager,
-        LocalRiveRuntime provides runtime
+//        LocalRiveRuntime provides runtime
     ) {
         when (val state = loadState) {
             is RiveLoadState.Loading -> loadingContent()
@@ -113,22 +127,29 @@ actual fun RiveComponent(
 ) {
 
     val fileManager = LocalRiveFileManager.current as? AndroidRiveFileManager
-    val runtime = LocalRiveRuntime.current ?: return
+
+
+//    val runtime = LocalRiveRuntime.current ?: return
 
     val riveFile = remember(resourceName, fileManager) {
         fileManager?.getFile(resourceName)
     } ?: return
 
-    val vmi = remember(resourceName, instanceKey) {
-        runtime.getInstance(
-            resourceName = resourceName,
-            instanceKey = instanceKey,
-            viewModelName = viewModelName,
-        )
-    }
+//    val vmi = remember(resourceName, instanceKey) {
+//        runtime.getInstance(
+//            resourceName = resourceName,
+//            instanceKey = instanceKey,
+//            viewModelName = viewModelName,
+//        )
+//    }
 
-    val controller = remember(vmi) {
-        AndroidRiveController(vmi)
+    val vmi = rememberViewModelInstance(riveFile)
+
+    val controller = remember(vmi, fileManager) {
+        AndroidRiveController(
+            vmi = vmi,
+            fileManager = fileManager ?: return@remember AndroidRiveController(vmi, null),
+        )
     }
 
     LaunchedEffect(vmi) {
@@ -155,6 +176,7 @@ actual fun RiveComponent(
         }
     }
 
+
     val riveFit = when (fit) {
         RiveFit.CONTAIN -> Fit.Contain()
         RiveFit.COVER -> Fit.Cover()
@@ -164,6 +186,7 @@ actual fun RiveComponent(
         RiveFit.NONE -> Fit.None()
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
     }
+
 
     if (batched) {
         RiveBatchItem(
@@ -183,3 +206,4 @@ actual fun RiveComponent(
         )
     }
 }
+
