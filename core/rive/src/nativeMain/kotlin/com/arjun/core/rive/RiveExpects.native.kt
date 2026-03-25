@@ -1,7 +1,5 @@
 package com.arjun.core.rive
 
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -12,7 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
-import androidx.compose.ui.unit.dp
 import com.arjun.core.rive.utils.RiveAlignment
 import com.arjun.core.rive.utils.RiveFit
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -75,7 +72,7 @@ actual fun RiveComponent(
     val bridge = IOSRivePlatform.bridge ?: return
 
     val handle = remember(resourceName, instanceKey) {
-        bridge.createHandle(resourceName)
+        bridge.createHandle(resourceName, artboardName, stateMachineName)
     } ?: return
 
     val controller = remember(handle) { IOSRiveController(handle) }
@@ -85,23 +82,11 @@ actual fun RiveComponent(
         onControllerReady?.invoke(controller)
     }
 
-    // Apply all properties when config changes
-    LaunchedEffect(handle, config) {
-        config.booleans.forEach { (k, v) ->
-            controller.setBoolean(k, v)
-        }
-
-        config.strings.forEach { (k, v) ->
-            controller.setString(k, v)
-        }
-
-        config.enums.forEach { (k, v) ->
-            controller.setEnum(k, v)
-        }
-
-        config.numbers.forEach { (k, v) ->
-            controller.setNumber(k, v)
-        }
+    // Apply config SYNCHRONOUSLY during composition — no flash.
+    // Same pattern as Android: remember(handle, config) { ... }
+    @Suppress("RememberReturnType")
+    remember(handle, config) {
+        controller.applyConfig(config)
     }
 
     // Trigger listeners in separate LaunchedEffect — matches Android pattern
