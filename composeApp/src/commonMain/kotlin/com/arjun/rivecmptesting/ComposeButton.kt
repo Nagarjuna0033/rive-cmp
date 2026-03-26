@@ -783,9 +783,9 @@ val animationConfig = """
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleY", "value": 0.92, "duration": 140 },
-                { "property": "translationY", "value": 4, "duration": 140 },
-                { "property": "shadowOffset", "value": 0, "duration": 140 }
+                { "property": "scaleY", "value": 0.92, "duration": 100 },
+                { "property": "translationY", "value": 4, "duration": 100 },
+                { "property": "shadowOffset", "value": 0, "duration": 100 }
               ]
             },
             {
@@ -793,15 +793,44 @@ val animationConfig = """
               "items": [
                 {
                   "property": "scaleY", "value": 1.0,
-                  "easing": { "type": "spring", "dampingRatio": 0.48, "stiffness": 400 }
+                  "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
                 },
                 {
                   "property": "translationY", "value": 0,
-                  "easing": { "type": "spring", "dampingRatio": 0.48, "stiffness": 400 }
+                  "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
                 },
                 {
-                  "property": "shadowOffset", "value": 2.5,
-                  "easing": { "type": "spring", "dampingRatio": 0.9, "stiffness": 100 }
+                  "property": "shadowOffset", "value": 3,
+                  "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
+                }
+              ]
+            }
+          ]
+        },
+        "slamsmall": {
+          "steps": [
+            {
+              "mode": "parallel",
+              "items": [
+                { "property": "scaleY", "to": 0.92, "duration": 100 },
+                { "property": "translationY", "to": 2, "duration": 100 },
+                { "property": "shadowOffset", "to": 0, "duration": 100 }
+              ]
+            },
+            {
+              "mode": "parallel",
+              "items": [
+                {
+                  "property": "scaleY", "to": 1.0,
+                  "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
+                },
+                {
+                  "property": "translationY", "to": 0,
+                  "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
+                },
+                {
+                  "property": "shadowOffset", "to": 2,
+                  "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
                 }
               ]
             }
