@@ -29,9 +29,6 @@ class AndroidRiveFileManager(
 ) : RiveFileManager {
 
     private val assetDir = File(context.filesDir, "app_assets/assets")
-    internal val loadedBytes = ConcurrentHashMap<String, ByteArray>()
-    internal val assetBytes = ConcurrentHashMap<String, ByteArray>()
-
     private val loadedFiles = ConcurrentHashMap<String, RiveFile>()
     private val loadStates = ConcurrentHashMap<String, RiveLoadState>()
 
@@ -113,8 +110,6 @@ class AndroidRiveFileManager(
             if (registeredAssets.contains(asset.assetId)) return
 
             val bytes = loadFileBytes(asset.resourceName)
-            assetBytes[asset.assetId] = bytes
-            assetBytes[asset.resourceName] = bytes
 
             when (asset.type) {
 
@@ -153,7 +148,6 @@ class AndroidRiveFileManager(
     private suspend fun buildRiveFile(fileName: String): RiveFile {
 
         val bytes = loadFileBytes(fileName)
-        loadedBytes[fileName] = bytes
         Log.d("RiveFileManager", "Loaded bytes for $fileName")
         return when (
             val result = RiveFile.fromSource(
@@ -180,12 +174,6 @@ class AndroidRiveFileManager(
         }
 
     fun getFile(resourceName: String): RiveFile? = loadedFiles[resourceName]
-
-
-    fun getAssetBytes(name: String): ByteArray? =
-        assetBytes[name] ?: assetBytes.entries.firstOrNull {
-            it.key.contains(name, ignoreCase = true)
-        }?.value
 
     override fun isFileLoaded(resourceName: String) =
         loadedFiles.containsKey(resourceName)

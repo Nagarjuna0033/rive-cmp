@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -57,8 +58,13 @@ actual fun RiveProvider(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // Start worker polling immediately and keep it running
+//    LaunchedEffect(riveWorker) {
+//        riveWorker.beginPolling(lifecycle)
+//    }
+
+    val currentLifecycle by rememberUpdatedState(lifecycle)
     LaunchedEffect(riveWorker) {
-        riveWorker.beginPolling(lifecycle)
+        riveWorker.beginPolling(currentLifecycle)
     }
 
     val fileManager = remember(riveWorker) {
@@ -185,6 +191,12 @@ actual fun RiveComponent(
         RiveFit.FIT_HEIGHT -> Fit.FitHeight()
         RiveFit.NONE -> Fit.None()
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
+    }
+
+    DisposableEffect(controller) {
+        onDispose {
+            controller.destroy()
+        }
     }
 
 

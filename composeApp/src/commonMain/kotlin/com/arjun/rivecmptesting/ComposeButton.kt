@@ -77,6 +77,8 @@ val ColorYellowYellow100 = Color(0xFFFFF3D1)
 
 val ColorGrayGray500 = Color(0xFF938C95)
 
+val ColorNeutralBlack = Color(0xFF030712)
+
 enum class ButtonAnimationType {
     NONE,
     PRESS,
@@ -271,7 +273,7 @@ fun ComposeButton(
     isLoading: Boolean = false,
     isEnabled: Boolean = true,
     cornerRadius: Dp = 8.dp,
-    shadowOffsetFactor: Dp = 4.dp,                                         // CHANGED: was 1.5.dp, now 4.dp for slam travel
+    shadowOffsetFactor: Dp = 2.5.dp,                                         // CHANGED: was 1.5.dp, now 4.dp for slam travel
     floatingBadge: Any? = null,
     floatingBadgeSize: Dp = 30.dp,
     topLeftBadgeOffsetX: Dp = 6.dp,
@@ -283,15 +285,8 @@ fun ComposeButton(
     animationType: ButtonAnimationType = ButtonAnimationType.SLAM,          // CHANGED: default to SLAM
 ) {
 
-    // Animation state
-    val scaleX = remember { Animatable(1f) }
-    val scaleY = remember { Animatable(1f) }
-    val translationY = remember { Animatable(0f) }
-    val translationX = remember { Animatable(0f) }
-    val rotation = remember { Animatable(0f) }
     val shadowOffset = remember { Animatable(shadowOffsetFactor.value) }    // ADDED: animated shadow
 
-    val animationKey = animationType.name.lowercase()
     val animationState = remember { AnimationState() }
     val engine = remember {
         AnimationEngine(
@@ -396,7 +391,7 @@ fun ComposeButton(
                             brush = borderBrush,
                             topLeft = Offset(0f, offset + 1.6.dp.toPx()),
                             size = size,
-                            cornerRadius = cr
+                            cornerRadius = CornerRadius(10.dp.toPx())
                         )
                     }
                     .background(
@@ -805,7 +800,7 @@ val animationConfig = """
                   "easing": { "type": "spring", "dampingRatio": 0.48, "stiffness": 400 }
                 },
                 {
-                  "property": "shadowOffset", "value": 3,
+                  "property": "shadowOffset", "value": 2.5,
                   "easing": { "type": "spring", "dampingRatio": 0.9, "stiffness": 100 }
                 }
               ]
@@ -820,7 +815,7 @@ val animationConfig = """
 
 
 private val EnabledBorderBrush = Brush.verticalGradient(
-    listOf(ColorGrayGray900.copy(alpha = 0.3f), ColorGrayGray900)
+    listOf(ColorNeutralBlack, ColorNeutralBlack)
 )
 
 private val DisabledBorderBrush = Brush.verticalGradient(

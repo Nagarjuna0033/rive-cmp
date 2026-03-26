@@ -28,6 +28,7 @@ class AndroidRiveController(
     private val fileManager: AndroidRiveFileManager?,
 ) : RiveController {
 
+    private val imageAssetCache = ConcurrentHashMap<String, ImageAsset>()
 
     override fun setString(propertyName: String, value: String) {
         runCatching { vmi.setString(propertyName, value) }
@@ -90,10 +91,12 @@ class AndroidRiveController(
             val bytes = loadRiveImageBytes(url)
                 ?: error("Failed to fetch bytes from $url")
 
-            val imageAsset = when (val result = ImageAsset.fromBytes(worker, bytes)) {
-                is Result.Success -> result.value
-                is Result.Error -> error("ImageAsset.fromBytes failed: ${result.throwable.message}")
-                is Result.Loading -> error("Unexpected loading state")
+            val imageAsset = imageAssetCache.getOrPut(url) {
+                when (val result = ImageAsset.fromBytes(worker, bytes)) {
+                    is Result.Success -> result.value
+                    is Result.Error -> error("ImageAsset.fromBytes failed: ${result.throwable?.message}")
+                    is Result.Loading -> error("Unexpected loading state")
+                }
             }
 
             vmi.setImage(propertyName, imageAsset)
@@ -103,7 +106,13 @@ class AndroidRiveController(
 
 
     override fun destroy() {
-
+        val worker = fileManager?.riveWorker ?: return
+        imageAssetCache.values.forEach { asset ->
+            runCatching {
+                worker.deleteImage(asset.handle)
+            }
+        }
+        imageAssetCache.clear()
     }
 
     // Expose raw VMI for advanced use
