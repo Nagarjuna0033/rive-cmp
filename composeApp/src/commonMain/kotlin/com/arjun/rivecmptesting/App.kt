@@ -115,12 +115,12 @@ private fun MainScreen(onNotificationClick: () -> Unit) {
                 .fillMaxSize()
         ) {
             when (selectedTab) {
-//                0 -> ContestLargeCards(contests = homeTabData, tabTag = "home")
-//                1 -> ContestLargeCards(contests = contestsTabData, tabTag = "contests")
-//                2 -> ComposeAnimations()
-                0 -> {}
-                1 -> {}
-                2 -> {}
+                0 -> ContestLargeCards(contests = homeTabData, tabTag = "home")
+                1 -> ContestLargeCards(contests = contestsTabData, tabTag = "contests")
+                2 -> ComposeAnimations()
+//                0 -> {}
+//                1 -> {}
+//                2 -> {}
             }
         }
     }

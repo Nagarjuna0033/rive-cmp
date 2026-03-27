@@ -91,18 +91,62 @@ enum class ButtonAnimationType {
     COMBO
 }
 
+enum class ButtonHapticType {
+    CONFIRM,
+    CONTEXT_CLICK,
+    GESTURE_END,
+    GESTURE_THRESHOLD_ACTIVATE,
+    KEYBOARD_TAP,
+    LONG_PRESS,
+    REJECT,
+    SEGMENT_FREQUENT_TICK,
+    SEGMENT_TICK,
+    TEXT_HANDLE_MOVE,
+    TOGGLE_OFF,
+    TOGGLE_ON,
+    VIRTUAL_KEY
+}
+
+fun ButtonHapticType.toHaptic(): HapticFeedbackType {
+    return when (this) {
+        ButtonHapticType.CONFIRM -> HapticFeedbackType.Confirm
+        ButtonHapticType.CONTEXT_CLICK -> HapticFeedbackType.ContextClick
+        ButtonHapticType.GESTURE_END -> HapticFeedbackType.GestureEnd
+        ButtonHapticType.GESTURE_THRESHOLD_ACTIVATE -> HapticFeedbackType.GestureThresholdActivate
+        ButtonHapticType.KEYBOARD_TAP -> HapticFeedbackType.KeyboardTap
+        ButtonHapticType.LONG_PRESS -> HapticFeedbackType.LongPress
+        ButtonHapticType.REJECT -> HapticFeedbackType.Reject
+        ButtonHapticType.SEGMENT_FREQUENT_TICK -> HapticFeedbackType.SegmentFrequentTick
+        ButtonHapticType.SEGMENT_TICK -> HapticFeedbackType.SegmentTick
+        ButtonHapticType.TEXT_HANDLE_MOVE -> HapticFeedbackType.TextHandleMove
+        ButtonHapticType.TOGGLE_OFF -> HapticFeedbackType.ToggleOff
+        ButtonHapticType.TOGGLE_ON -> HapticFeedbackType.ToggleOn
+        ButtonHapticType.VIRTUAL_KEY -> HapticFeedbackType.VirtualKey
+    }
+}
+
 @Composable
 fun ComposeAnimations() {
 
+    val animations = ButtonAnimationType.entries
+    val haptics = ButtonHapticType.entries
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(ButtonAnimationType.entries) { type ->
+        items(animations.size * haptics.size) { index ->
+
+            val animation = animations[index % animations.size]
+            val haptic = haptics[index % haptics.size]
+
             ComposeButton(
                 modifier = Modifier.fillMaxWidth(),
-                text = type.name,
-                animationType = type
+                text = "${animation.name} + ${haptic.name}",
+                animationType = animation,
+                hapticType = haptic
             )
         }
     }
@@ -283,6 +327,7 @@ fun ComposeButton(
     iconName: String? = null,
     selection: String? = null,
     animationType: ButtonAnimationType = ButtonAnimationType.SLAM,          // CHANGED: default to SLAM
+    hapticType: ButtonHapticType = ButtonHapticType.SEGMENT_TICK
 ) {
 
     val shadowOffset = remember { Animatable(shadowOffsetFactor.value) }    // ADDED: animated shadow
@@ -294,6 +339,8 @@ fun ComposeButton(
         )
     }
     val scope = rememberCoroutineScope()
+
+    val haptic = LocalHapticFeedback.current
 
 
     var animationJob by remember { mutableStateOf<Job?>(null) }
@@ -320,6 +367,7 @@ fun ComposeButton(
 
     val guardedClick = remember(onClick, isEnabled, isLoading, text) {
         {
+            haptic.performHapticFeedback(hapticType.toHaptic())
             // Cancel any running animation first
             animationJob?.cancel()
 
@@ -346,7 +394,6 @@ fun ComposeButton(
                             state = animationState,
                             shadowDefault = shadowOffsetFactor.value
                         )
-                        onClick()
                     }
 
                     // onClick fires AFTER animation completes
@@ -431,6 +478,7 @@ fun ComposeButton(
                     when {
                         displayText != null -> Text(
                             text = displayText,
+                            color = Color.Black
                         )
                     }
                     // Trailing text
@@ -438,6 +486,7 @@ fun ComposeButton(
                         Spacer(Modifier.width(3.dp))
                         Text(
                             text = trailingText,
+                            color = Color.Black
                         )
                     }
                 }
@@ -812,24 +861,24 @@ val animationConfig = """
             {
               "mode": "parallel",
               "items": [
-                { "property": "scaleY", "to": 0.92, "duration": 100 },
-                { "property": "translationY", "to": 2, "duration": 100 },
-                { "property": "shadowOffset", "to": 0, "duration": 100 }
+                { "property": "scaleY", "value": 0.92, "duration": 100 },
+                { "property": "translationY", "value": 2, "duration": 100 },
+                { "property": "shadowOffset", "value": 0, "duration": 100 }
               ]
             },
             {
               "mode": "parallel",
               "items": [
                 {
-                  "property": "scaleY", "to": 1.0,
+                  "property": "scaleY", "value": 1.0,
                   "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
                 },
                 {
-                  "property": "translationY", "to": 0,
+                  "property": "translationY", "value": 0,
                   "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
                 },
                 {
-                  "property": "shadowOffset", "to": 2,
+                  "property": "shadowOffset", "value": 2,
                   "easing": { "type": "spring", "dampingRatio": 0.7, "stiffness": 600 }
                 }
               ]
