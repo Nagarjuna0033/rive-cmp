@@ -447,7 +447,7 @@ fun ComposeButton(
             }
 
             if (isEnabled && !isLoading) {
-                playClickSound()
+//                playClickSound()
 
                 animationJob = scope.launch {
                     // Reset all values before starting
