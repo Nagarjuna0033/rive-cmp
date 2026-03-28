@@ -9,7 +9,9 @@ object RiveConfigs {
 
         const val DOWNLOAD_BUTTON = "download_button.riv"
 
-        const val MATCHMAKING = "matchmaking1.riv"
+        const val MATCHMAKING = "matchmaking.riv"
+
+        const val SWORD_NAV = "sword_nav.riv"
     }
 
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
@@ -65,11 +67,16 @@ object RiveConfigs {
         )
     )
 
+    val sword = RiveFileConfig(
+        resourceName = Files.SWORD_NAV
+    )
+
     // ── Preload everything at app start ────────────────────────────────
     val allConfigs = listOf(
         contestButton,
 //        downloadButton,
-        matchMaking
+        matchMaking,
+//        sword
     )
 }
 
@@ -109,10 +116,12 @@ object RiveProps {
     }
 
     object MatchMaking {
+
+        const val VIEWMODEL_NAME = "ViewModel1"
         const val CURRENT_USER_NAME = "Current User Name"
         const val OPPONENT_USER_NAME = "Opponent User Name"
-        const val CURRENT_USER_IMAGE = "Current User Image"
-        const val OPPONENT_USER_IMAGE = "Opponent User Image"
+        const val CURRENT_USER_PICTURE = "Current User Picture"
+        const val OPPONENT_USER_PICTURE = "Opponent User Picture"
 
         const val MATCH_FOUND = "Match Found"
 

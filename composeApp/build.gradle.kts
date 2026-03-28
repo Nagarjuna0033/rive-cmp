@@ -59,6 +59,11 @@ kotlin {
             implementation("io.coil-kt.coil3:coil-compose:3.4.0")
             implementation(libs.ui.backhandler)
 
+            implementation(libs.compottie.resources)
+            implementation(libs.compottie.dot)
+            implementation(libs.compottie.lite)
+            implementation(libs.compottie.network)
+            implementation(libs.compottie)
             implementation("org.jetbrains.androidx.navigation:navigation-compose:2.9.2")
 
         }

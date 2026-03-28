@@ -6,6 +6,7 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -60,12 +61,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.arjun.core.rive.RiveComponent
+import io.github.alexzhirkevich.compottie.DotLottie
+import io.github.alexzhirkevich.compottie.LottieAnimatable
+import io.github.alexzhirkevich.compottie.LottieCompositionSpec
+import io.github.alexzhirkevich.compottie.rememberLottieComposition
+import io.github.alexzhirkevich.compottie.rememberLottiePainter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import rivecmptesting.composeapp.generated.resources.Res
 
 val ColorGrayGray400 = Color(0xFFB2ADB4)
 val ColorYellowYellow300 = Color(0xFFFFD970)
@@ -131,6 +139,8 @@ fun ComposeAnimations() {
     val animations = ButtonAnimationType.entries
     val haptics = ButtonHapticType.entries
 
+//    LottieDot()
+//    RenderRive()
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -307,6 +317,38 @@ fun ComposeAnimations() {
 
 
 @Composable
+fun LottieDot() {
+
+    val composition by rememberLottieComposition {
+        LottieCompositionSpec.DotLottie(
+            archive = Res.readBytes("files/sword.lottie")
+        )
+    }
+
+    Image(
+        painter = rememberLottiePainter(
+            composition = composition,
+        ),
+        modifier = Modifier,
+        contentDescription = "Day-night switch"
+    )
+
+}
+
+@Composable
+fun RenderRive() {
+
+
+    RiveComponent(
+        resourceName = "sword_nav.riv",
+        instanceKey = "1",
+        viewModelName = "ViewModel1",
+    )
+
+
+}
+
+@Composable
 fun ComposeButton(
     modifier: Modifier = Modifier,
     text: String? = null,
@@ -330,6 +372,7 @@ fun ComposeButton(
     hapticType: ButtonHapticType = ButtonHapticType.SEGMENT_TICK
 ) {
 
+
     val shadowOffset = remember { Animatable(shadowOffsetFactor.value) }    // ADDED: animated shadow
 
     val animationState = remember { AnimationState() }
@@ -338,10 +381,30 @@ fun ComposeButton(
             Json.decodeFromString(animationConfig)
         )
     }
+    val collection = remember { Json.decodeFromString<AnimationCollection>(animationConfig) }
+
+    var currentState by remember { mutableStateOf("IDLE") }
+    val transitionEngine = remember {
+        StateTransitionEngine(collection)
+    }
+
     val scope = rememberCoroutineScope()
 
     val haptic = LocalHapticFeedback.current
 
+
+    suspend fun updateState(newState: String) {
+        val old = currentState
+        currentState = newState
+
+        transitionEngine.transition(
+            component = "button/primary",
+            from = old,
+            to = newState,
+            state = animationState,
+            shadowDefault = shadowOffsetFactor.value
+        )
+    }
 
     var animationJob by remember { mutableStateOf<Job?>(null) }
 
@@ -550,6 +613,33 @@ suspend fun runAnimation(
 }
 
 
+class StateTransitionEngine(
+    private val collection: AnimationCollection
+) {
+
+    suspend fun transition(
+        component: String,
+        from: String,
+        to: String,
+        state: AnimationState,
+        shadowDefault: Float
+    ) {
+        val componentConfig = collection.components[component] ?: return
+
+        val key = "$from->$to"
+        val animationName = componentConfig.transitions[key] ?: return
+
+        val config = collection.animations[animationName] ?: return
+
+        val registry = AnimationRegistry(state)
+
+        state.reset(shadowDefault)
+
+        runAnimation(config, collection.defaults, registry)
+    }
+}
+
+
 class AnimationState {
 
     val scaleX = Animatable(1f)
@@ -590,7 +680,14 @@ class AnimationRegistry(
 data class AnimationCollection(
     val version: Int,
     val defaults: DefaultConfig,
-    val animations: Map<String, AnimationConfig>
+    val animations: Map<String, AnimationConfig>,
+    val components: Map<String, ComponentConfig> = emptyMap()
+)
+
+@Serializable
+data class ComponentConfig(
+    val initialState: String,
+    val transitions: Map<String, String>
 )
 
 @Serializable
@@ -646,6 +743,18 @@ val animationConfig = """
         "duration": 120,
         "easing": {
           "type": "tween"
+        }
+      },
+      "components": {
+        "button/primary": {
+          "initialState": "IDLE",
+          "transitions": {
+            "IDLE->PRESSED": "slam",
+            "PRESSED->IDLE": "bounce",
+            "IDLE->DISABLED": "shake",
+            "IDLE->LOADING": "pulse",
+            "LOADING->IDLE": "bounce"
+          }
         }
       },
       "animations": {
