@@ -4,6 +4,10 @@ import SwiftUI
 import RiveRuntime
 import ComposeApp
 
+// Disambiguate KMP enums from RiveRuntime enums
+typealias KmpRiveFit = ComposeApp.RiveFit
+typealias KmpRiveAlignment = ComposeApp.RiveAlignment
+
 // MARK: - SwiftRiveHandle
 
 class SwiftRiveHandle: IOSRiveHandle {
@@ -47,7 +51,43 @@ class SwiftRiveHandle: IOSRiveHandle {
         }
     }
 
-    override func getUIView() -> UIView {
+    private func mapFit(_ fit: KmpRiveFit) -> RiveRuntime.RiveFit {
+        switch fit {
+        case .fill: return .fill
+        case .contain: return .contain
+        case .cover: return .cover
+        case .fitWidth: return .fitWidth
+        case .fitHeight: return .fitHeight
+        case .scaleDown: return .scaleDown
+        case .none: return .noFit
+        case .layout: return .layout
+        default: return .fill
+        }
+    }
+
+    private func mapAlignment(_ alignment: KmpRiveAlignment) -> RiveRuntime.RiveAlignment {
+        switch alignment {
+        case .topLeft: return .topLeft
+        case .topCenter: return .topCenter
+        case .topRight: return .topRight
+        case .centerLeft: return .centerLeft
+        case .center: return .center
+        case .centerRight: return .centerRight
+        case .bottomLeft: return .bottomLeft
+        case .bottomCenter: return .bottomCenter
+        case .bottomRight: return .bottomRight
+        default: return .center
+        }
+    }
+
+    override func getUIView(
+        fit: KmpRiveFit = .contain,
+        alignment: KmpRiveAlignment = .center
+    ) -> UIView {
+        // Apply layout params before constructing (or reusing) the view
+        riveViewModel.fit = mapFit(fit)
+        riveViewModel.alignment = mapAlignment(alignment)
+
         if let existing = hostingController {
             return existing.view
         }
@@ -57,6 +97,7 @@ class SwiftRiveHandle: IOSRiveHandle {
         hostingController = hosting
         return hosting.view
     }
+
 
     // MARK: - VMI access
     // All operations are dispatched to main thread to ensure:

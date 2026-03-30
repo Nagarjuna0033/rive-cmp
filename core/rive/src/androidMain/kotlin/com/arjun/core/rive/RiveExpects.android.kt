@@ -191,6 +191,7 @@ actual fun RiveComponent(
         RiveFit.FIT_HEIGHT -> Fit.FitHeight()
         RiveFit.NONE -> Fit.None()
         RiveFit.SCALE_DOWN -> Fit.ScaleDown()
+        RiveFit.LAYOUT -> Fit.Layout()
     }
 
     DisposableEffect(controller) {

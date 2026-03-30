@@ -37,5 +37,7 @@ enum class RiveFit {
      */
     NONE,
 
-    SCALE_DOWN
+    SCALE_DOWN,
+
+    LAYOUT
 }

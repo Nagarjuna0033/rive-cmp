@@ -1,11 +1,13 @@
 package com.arjun.core.rive
 
+import com.arjun.core.rive.utils.RiveAlignment
+import com.arjun.core.rive.utils.RiveFit
 import kotlin.concurrent.Volatile
 import platform.UIKit.UIView
 
 // Wraps a single Rive view instance — subclassed in Swift
 open class IOSRiveHandle {
-    open fun getUIView(): UIView = UIView()
+    open fun getUIView(fit: RiveFit = RiveFit.CONTAIN, alignment: RiveAlignment = RiveAlignment.CENTER): UIView = UIView()
     open fun setStringProperty(name: String, value: String) {}
     open fun setEnumProperty(name: String, value: String) {}
     open fun setBooleanProperty(name: String, value: Boolean) {}

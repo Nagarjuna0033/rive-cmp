@@ -42,7 +42,7 @@ fun MatchMakingScreen(onBack: () -> Unit = {}) {
 
     var isMatchFound by remember { mutableStateOf(false) }
     var currentUserName by remember { mutableStateOf("Current User") }
-    var opponentUserName by remember { mutableStateOf("Opponent User") }
+    var opponentUserName by remember { mutableStateOf("Finding Players...") }
     var controller by remember("MatchMaking") { mutableStateOf<RiveController?>(null) }
 
 
@@ -58,12 +58,12 @@ fun MatchMakingScreen(onBack: () -> Unit = {}) {
         controller?.let { ctrl ->
 
             currentUserName = "Arjun"
+            ctrl.setImageFromUrl(RiveProps.MatchMaking.CURRENT_USER_PICTURE, "https://media.bebetta.in/public/ProfilePictures/AV_1.webp")
             ctrl.fireTrigger(RiveProps.MatchMaking.INTRO)
 
             delay(3000)
 
             opponentUserName = "Nag"
-            ctrl.setImageFromUrl(RiveProps.MatchMaking.CURRENT_USER_PICTURE, "https://media.bebetta.in/public/ProfilePictures/AV_1.webp")
             ctrl.setImageFromUrl(RiveProps.MatchMaking.OPPONENT_USER_PICTURE, "https://media.bebetta.in/public/ProfilePictures/AV_1.webp")
 
             isMatchFound = true
