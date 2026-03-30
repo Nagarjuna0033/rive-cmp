@@ -224,7 +224,7 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
     /// Asset directory on disk — mirrors Android's File(context.filesDir, "app_assets/assets")
     private static let assetDir: URL = {
         let filesDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return filesDir.appendingPathComponent("app_assets/assets")
+        return filesDir.appendingPathComponent("app_assets/asset")
     }()
 
     func preloadFiles(configs: [RiveFileConfig]) -> Bool {
