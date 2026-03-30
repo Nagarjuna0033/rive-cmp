@@ -221,13 +221,11 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
     // handle gets its own independent enableAutoBind VMI.
     private var loadedConfigs: [String: [String: RiveAssetConfig]] = [:]
 
-    /// Strip .riv extension if present — RiveModel(fileName:) expects name without extension
-    private static func stripRivExtension(_ name: String) -> String {
-        if name.hasSuffix(".riv") {
-            return String(name.dropLast(4))
-        }
-        return name
-    }
+    /// Asset directory on disk — mirrors Android's File(context.filesDir, "app_assets/assets")
+    private static let assetDir: URL = {
+        let filesDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return filesDir.appendingPathComponent("app_assets/assets")
+    }()
 
     func preloadFiles(configs: [RiveFileConfig]) -> Bool {
         for config in configs {
@@ -240,28 +238,15 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                 assetMap[asset.assetId] = asset
             }
 
-            let fileName = Self.stripRivExtension(config.resourceName)
-
-            // Validate the file can be loaded
-            do {
-                let _ = try RiveModel(
-                    fileName: fileName,
-                    loadCdn: false,
-                    customLoader: { [assetMap] asset, data, factory in
-                        return Self.loadAsset(
-                            asset: asset,
-                            data: data,
-                            factory: factory,
-                            assetMap: assetMap
-                        )
-                    }
-                )
-                loadedConfigs[config.resourceName] = assetMap
-                print("[SwiftRiveBridge] Validated: \(config.resourceName)")
-            } catch {
-                print("[SwiftRiveBridge] Failed to load \(config.resourceName): \(error)")
+            // Load .riv file bytes from disk (not Bundle)
+            let rivFileURL = Self.assetDir.appendingPathComponent(config.resourceName)
+            guard let rivData = try? Data(contentsOf: rivFileURL) else {
+                print("[SwiftRiveBridge] .riv file not found on disk: \(rivFileURL.path)")
                 return false
             }
+
+            loadedConfigs[config.resourceName] = assetMap
+            print("[SwiftRiveBridge] Validated: \(config.resourceName)")
         }
         return true
     }
@@ -276,13 +261,18 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
             return nil
         }
 
-        let fileName = Self.stripRivExtension(resourceName)
+        // Load .riv file bytes from disk (not Bundle)
+        let rivFileURL = Self.assetDir.appendingPathComponent(resourceName)
+        guard let rivData = try? Data(contentsOf: rivFileURL) else {
+            print("[SwiftRiveBridge] .riv file not found on disk: \(rivFileURL.path)")
+            return nil
+        }
 
         do {
-            let model = try RiveModel(
-                fileName: fileName,
+            let riveFile = try RiveFile(
+                data: rivData,
                 loadCdn: false,
-                customLoader: { [assetMap] asset, data, factory in
+                customAssetLoader: { [assetMap] asset, data, factory in
                     return Self.loadAsset(
                         asset: asset,
                         data: data,
@@ -291,6 +281,7 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
                     )
                 }
             )
+            let model = RiveModel(riveFile: riveFile)
             return SwiftRiveHandle(
                 riveModel: model,
                 artboardName: artboardName,
@@ -347,8 +338,8 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
         if let fontAsset = asset as? RiveFontAsset {
             let extensions = [configExt, asset.fileExtension(), "ttf", "otf"].compactMap { $0 }
             for ext in extensions {
-                if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
-                   let fontData = try? Data(contentsOf: url) {
+                let fileURL = assetDir.appendingPathComponent("\(resourceName).\(ext)")
+                if let fontData = try? Data(contentsOf: fileURL) {
                     let decodedFont = factory.decodeFont(fontData)
                     fontAsset.font(decodedFont)
                     print("[SwiftRiveBridge] Font injected: \(uniqueName) from \(resourceName).\(ext)")
@@ -362,8 +353,8 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
         if let imageAsset = asset as? RiveImageAsset {
             let extensions = [configExt, asset.fileExtension(), "webp", "png", "jpg", "jpeg"].compactMap { $0 }
             for ext in extensions {
-                if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
-                   let imageData = try? Data(contentsOf: url) {
+                let fileURL = assetDir.appendingPathComponent("\(resourceName).\(ext)")
+                if let imageData = try? Data(contentsOf: fileURL) {
                     let decoded = factory.decodeImage(imageData)
                     imageAsset.renderImage(decoded)
                     print("[SwiftRiveBridge] Image injected: \(uniqueName) from \(resourceName).\(ext)")
