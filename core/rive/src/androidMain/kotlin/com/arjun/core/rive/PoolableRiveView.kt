@@ -48,16 +48,26 @@ internal fun PoolableRiveView(
     viewModelInstance: ViewModelInstance? = null,
     fit: Fit = Fit.Contain(),
     backgroundColor: Int = Color.Transparent.toArgb(),
+    artboardName: String? = null,
+    stateMachineName: String? = null,
 ) {
     val riveWorker = file.riveWorker
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Artboard + state machine handles, created once per file binding.
-    val artboardHandle = remember(file) {
-        riveWorker.createDefaultArtboard(file.fileHandle)
+    val artboardHandle = remember(file, artboardName) {
+        if (artboardName != null) {
+            riveWorker.createArtboardByName(file.fileHandle, artboardName)
+        } else {
+            riveWorker.createDefaultArtboard(file.fileHandle)
+        }
     }
-    val stateMachineHandle = remember(artboardHandle) {
-        riveWorker.createDefaultStateMachine(artboardHandle)
+    val stateMachineHandle = remember(artboardHandle, stateMachineName) {
+        if (stateMachineName != null) {
+            riveWorker.createStateMachineByName(artboardHandle, stateMachineName)
+        } else {
+            riveWorker.createDefaultStateMachine(artboardHandle)
+        }
     }
 
     // Track the RiveSurface created from the TextureView's SurfaceTexture.
