@@ -204,7 +204,10 @@ private fun createSurfaceTextureListener(
         width: Int,
         height: Int,
     ) {
-        // Size changes are handled by the draw call's fit parameter.
+        // Recreate the RiveSurface so it renders at the new dimensions.
+        onSurfaceDestroyed()
+        val surface = riveWorker.createRiveSurface(surfaceTexture)
+        onSurfaceCreated(surface)
     }
 
     override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
