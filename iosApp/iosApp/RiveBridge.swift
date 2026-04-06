@@ -4,6 +4,30 @@ import SwiftUI
 import RiveRuntime
 import ComposeApp
 
+// MARK: - TransparentContainerView
+
+/// A UIView that forces all descendant backgrounds to clear on every layout pass.
+/// Needed because RiveView resets its background when animation state changes
+/// (e.g. tab selection triggers), and a one-time clear isn't sufficient.
+private class TransparentContainerView: UIView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        clearDescendantBackgrounds(self)
+    }
+
+    private func clearDescendantBackgrounds(_ view: UIView) {
+        for subview in view.subviews {
+            subview.backgroundColor = .clear
+            subview.isOpaque = false
+            // Also clear the CALayer — critical for Metal/GL rendering layers
+            // (CAMetalLayer defaults to opaque, causing white backgrounds).
+            subview.layer.isOpaque = false
+            subview.layer.backgroundColor = UIColor.clear.cgColor
+            clearDescendantBackgrounds(subview)
+        }
+    }
+}
+
 // Disambiguate KMP enums from RiveRuntime enums
 typealias KmpRiveFit = ComposeApp.RiveFit
 typealias KmpRiveAlignment = ComposeApp.RiveAlignment
@@ -15,6 +39,7 @@ class SwiftRiveHandle: IOSRiveHandle {
     private let riveModel: RiveModel
     private let riveViewModel: RiveViewModel
     private var hostingController: UIHostingController<AnyView>?
+    private var containerView: TransparentContainerView?
     private var pendingOperations: [() -> Void] = []
     private var boundVMI: RiveDataBindingViewModel.Instance?
     private var triggerListenerIds: [UUID] = []
@@ -88,23 +113,30 @@ class SwiftRiveHandle: IOSRiveHandle {
         riveViewModel.fit = mapFit(fit)
         riveViewModel.alignment = mapAlignment(alignment)
 
-        if let existing = hostingController {
-            return existing.view
+        if let existing = containerView {
+            return existing
         }
         let swiftUIView = riveViewModel.view()
         let hosting = UIHostingController(rootView: AnyView(swiftUIView))
         hosting.view.backgroundColor = .clear
         hosting.view.isOpaque = false
-        // Clear the RiveView background if already available
-        riveViewModel.riveView?.backgroundColor = .clear
-        riveViewModel.riveView?.isOpaque = false
-        // Deferred: RiveView may not exist until SwiftUI layout runs.
-        // Clear all subview backgrounds after layout to catch it.
-        DispatchQueue.main.async { [weak self] in
-            self?.clearSubviewBackgrounds(hosting.view)
-        }
+        // Wrap in a container that clears subview backgrounds on every
+        // layout pass. The RiveView resets its background when animation
+        // state changes (e.g. tab selection), so a one-time clear isn't enough.
+        let container = TransparentContainerView()
+        container.backgroundColor = .clear
+        container.isOpaque = false
+        hosting.view.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(hosting.view)
+        NSLayoutConstraint.activate([
+            hosting.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hosting.view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            hosting.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hosting.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
         hostingController = hosting
-        return hosting.view
+        containerView = container
+        return container
     }
 
 
@@ -246,16 +278,6 @@ class SwiftRiveHandle: IOSRiveHandle {
         }
     }
 
-    /// Recursively clear backgrounds on all subviews so no UIView
-    /// in the hosting hierarchy introduces an opaque white rect.
-    private func clearSubviewBackgrounds(_ view: UIView) {
-        for subview in view.subviews {
-            subview.backgroundColor = .clear
-            subview.isOpaque = false
-            clearSubviewBackgrounds(subview)
-        }
-    }
-
     override func destroy() {
         isDestroyed = true
         pendingOperations.removeAll()
@@ -263,6 +285,7 @@ class SwiftRiveHandle: IOSRiveHandle {
         riveModel.disableAutoBind()
         boundVMI = nil
         hostingController = nil
+        containerView = nil
     }
 }
 
