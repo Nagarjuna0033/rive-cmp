@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.interop.UIKitView
 import com.arjun.core.rive.utils.RiveAlignment
 import com.arjun.core.rive.utils.RiveFit
@@ -105,5 +106,6 @@ actual fun RiveComponent(
     UIKitView(
         factory = { handle.getUIView() },
         modifier = modifier,
+        background = Color.Transparent,
     )
 }
