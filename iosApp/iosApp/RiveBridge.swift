@@ -95,6 +95,14 @@ class SwiftRiveHandle: IOSRiveHandle {
         let hosting = UIHostingController(rootView: AnyView(swiftUIView))
         hosting.view.backgroundColor = .clear
         hosting.view.isOpaque = false
+        // Clear the RiveView background if already available
+        riveViewModel.riveView?.backgroundColor = .clear
+        riveViewModel.riveView?.isOpaque = false
+        // Deferred: RiveView may not exist until SwiftUI layout runs.
+        // Clear all subview backgrounds after layout to catch it.
+        DispatchQueue.main.async { [weak self] in
+            self?.clearSubviewBackgrounds(hosting.view)
+        }
         hostingController = hosting
         return hosting.view
     }
@@ -235,6 +243,16 @@ class SwiftRiveHandle: IOSRiveHandle {
             } else {
                 print("[SwiftRiveHandle] Image property not found: \(name)")
             }
+        }
+    }
+
+    /// Recursively clear backgrounds on all subviews so no UIView
+    /// in the hosting hierarchy introduces an opaque white rect.
+    private func clearSubviewBackgrounds(_ view: UIView) {
+        for subview in view.subviews {
+            subview.backgroundColor = .clear
+            subview.isOpaque = false
+            clearSubviewBackgrounds(subview)
         }
     }
 
