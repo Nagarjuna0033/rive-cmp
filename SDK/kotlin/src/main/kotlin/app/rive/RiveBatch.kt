@@ -61,6 +61,7 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
         var hwBufferA: HardwareBuffer? = null
         var hwBufferB: HardwareBuffer? = null
         var useA: Boolean = true
+        var isFirstFrame: Boolean = true
     }
 
     private val items = ConcurrentHashMap<Any, ItemState>()
@@ -130,7 +131,16 @@ class RiveBatchRenderer(private val riveWorker: CommandQueue) {
                 )
             }
 
-            riveWorker.advanceStateMachine(item.stateMachineHandle, deltaTime)
+            // On the first frame after registration, advance with zero delta so
+            // auto-play animations start from the beginning instead of skipping
+            // frames consumed between state machine creation and registration.
+            val effectiveDelta = if (item.isFirstFrame) {
+                item.isFirstFrame = false
+                Duration.ZERO
+            } else {
+                deltaTime
+            }
+            riveWorker.advanceStateMachine(item.stateMachineHandle, effectiveDelta)
 
             val hwBuffer = if (item.useA) item.hwBufferA!! else item.hwBufferB!!
 
