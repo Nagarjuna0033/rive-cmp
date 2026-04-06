@@ -91,7 +91,7 @@ class SwiftRiveHandle: IOSRiveHandle {
         if let existing = hostingController {
             return existing.view
         }
-        let swiftUIView = riveViewModel.view().background(Color.clear)
+        let swiftUIView = riveViewModel.view()
         let hosting = UIHostingController(rootView: AnyView(swiftUIView))
         hosting.view.backgroundColor = .clear
         hosting.view.isOpaque = false
