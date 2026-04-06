@@ -41,6 +41,10 @@ kotlin {
             implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
             implementation("com.android.volley:volley:1.2.1")
             implementation("com.getkeepsafe.relinker:relinker:1.4.5")
+
+            implementation("com.github.LottieFiles:dotlottie-android:0.5.0")
+
+
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -87,6 +91,10 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+
+        jniLibs {
+            pickFirsts += listOf("**/libc++_shared.so")
         }
     }
     buildTypes {

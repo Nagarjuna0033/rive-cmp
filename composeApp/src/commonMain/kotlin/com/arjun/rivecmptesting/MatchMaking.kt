@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import com.arjun.core.rive.MatchMakingParams
-import com.arjun.core.rive.PrimaryButtonParams
 import com.arjun.core.rive.RiveComponent
 import com.arjun.core.rive.RiveConfigs
 import com.arjun.core.rive.RiveController

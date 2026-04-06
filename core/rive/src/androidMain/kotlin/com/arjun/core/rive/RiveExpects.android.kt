@@ -207,8 +207,8 @@ actual fun RiveComponent(
             modifier = modifier,
             viewModelInstance = vmi,
             fit = riveFit,
-            artboardName = artboardName,
-            stateMachineName = stateMachineName,
+//            artboardName = artboardName,
+//            stateMachineName = stateMachineName,
         )
     } else {
         PoolableRiveView(

@@ -5,31 +5,27 @@ object RiveConfigs {
 
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
-        const val PRIMARY_BUTTON    = "primary_button_v1.2.riv"
-
-        const val DOWNLOAD_BUTTON = "download_button.riv"
 
         const val MATCHMAKING = "matchmaking.riv"
 
         const val CONTEST_NAV = "contest_nav.riv"
 
         const val KICKER = "kicker.riv"
+
+        const val CONFETTI = "confetti.riv"
+
+        const val STORE = "storeshade.riv"
+
+        const val HOME_BOTTOM_NAV = "home_nav.riv"
+        const val TOURNAMENT_BOTTOM_NAV = "contest_nav.riv"
+        const val STORE_BOTTOM_NAV = "store_nav.riv"
+
+        const val DEALS_BOTTOM_NAV = "deals_nav.riv"
     }
 
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
     object AssetIds {
-        const val FONT_OUTFIT       = "Outfit-4229794"
-        const val BUTTON_CLICK      = "Button Click-1342551"
-        const val IMAGE_COIN        = "Coin Icon-5293203"
-        const val IMAGE_CASH        = "Cash Icon-5293204"
-        const val IMAGE_LOCK        = "Lock Icon-5293216"
-
-        const val IMAGE_AD = "Ad Icon-5654378.webp"
-
-        const val FONT = "Inter-995149"
-
         const val MATCHMAKING_FONT = "Outfit-4229794"
-
 
         const val KICKER_GEM_IMAGE = "gemlcon-5704807.png"
         const val KICKER_COIN_IMAGE = "coinlcon-5704813.png"
@@ -42,42 +38,36 @@ object RiveConfigs {
     // ── Raw resource names (without extension) ─────────────────────────
     object ResourceNames {
         const val FONT_OUTFIT = "rive-outfit.ttf"
-        const val IMAGE_IC_COIN     = "rive-cash.webp"
-        const val IMAGE_IC_CASH     = "rive-coin.webp"
-        const val IMAGE_IC_LOCK      = "rive-lock.webp"
-        const val AUDIO = "rive-button-audio.flac"
-
-        const val IMAGE_IC_AD = "rive-lock.webp"
-
         const val KICKER_IC_GEM = "kicker-gem.png"
         const val KICKER_IC_COIN = "kicker-coin.png"
     }
 
     // ── Per-file configs ───────────────────────────────────────────────
-    val contestButton = RiveFileConfig(
-        resourceName = Files.PRIMARY_BUTTON,
-        assets = listOf(
-            RiveAssetConfig(AssetIds.FONT_OUTFIT,   ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
-            RiveAssetConfig(AssetIds.IMAGE_COIN,    ResourceNames.IMAGE_IC_COIN, RiveAssetType.IMAGE),
-            RiveAssetConfig(AssetIds.IMAGE_CASH,    ResourceNames.IMAGE_IC_CASH, RiveAssetType.IMAGE),
-            RiveAssetConfig(AssetIds.IMAGE_LOCK,     ResourceNames.IMAGE_IC_LOCK,  RiveAssetType.IMAGE),
-            RiveAssetConfig(AssetIds.IMAGE_AD, ResourceNames.IMAGE_IC_AD, RiveAssetType.IMAGE),
-            RiveAssetConfig(AssetIds.BUTTON_CLICK, ResourceNames.AUDIO, RiveAssetType.AUDIO)
-        )
-    )
-
-    val downloadButton = RiveFileConfig(
-        resourceName = Files.DOWNLOAD_BUTTON,
-        assets = listOf(
-            RiveAssetConfig(AssetIds.FONT, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT)
-        )
-    )
 
     val matchMaking = RiveFileConfig(
         resourceName = Files.MATCHMAKING,
         assets = listOf(
             RiveAssetConfig(AssetIds.MATCHMAKING_FONT, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT)
         )
+    )
+
+    val homeBottomNav = RiveFileConfig(
+        resourceName = Files.HOME_BOTTOM_NAV,
+        assets = emptyList()
+    )
+
+    val storeBottomNav = RiveFileConfig(
+        resourceName = Files.STORE_BOTTOM_NAV,
+        assets = emptyList()
+    )
+    val tournamentBottomNav = RiveFileConfig(
+        resourceName = Files.TOURNAMENT_BOTTOM_NAV,
+        assets = emptyList()
+    )
+
+    val dealsBottomNav = RiveFileConfig(
+        resourceName = Files.DEALS_BOTTOM_NAV,
+        assets = emptyList()
     )
 
     val kicker = RiveFileConfig(
@@ -92,18 +82,25 @@ object RiveConfigs {
         )
     )
 
-    val contest_nav = RiveFileConfig(
-        resourceName = Files.CONTEST_NAV
+    val confetti = RiveFileConfig(
+        resourceName = Files.CONFETTI
+    )
+
+    val store = RiveFileConfig(
+        resourceName = Files.STORE
     )
 
     // ── Preload everything at app start ────────────────────────────────
     val allConfigs = listOf(
-        contestButton,
-//        downloadButton,
         matchMaking,
         kicker,
-        contest_nav,
-//        sword
+        confetti,
+        store,
+        homeBottomNav,
+        tournamentBottomNav,
+        storeBottomNav,
+        dealsBottomNav,
+
     )
 }
 
@@ -111,35 +108,11 @@ object RiveConfigs {
 
 object RiveProps {
 
-    object PrimaryButton {
 
-        const val VIEW_MODEL_NAME = "Button"
+    object Common {
+        const val VIEWMODEL_NAME = "ViewModel1"
 
-        // numbers
-        const val BUTTON_WIDTH = "Button Width"
-        const val CURRENCY_TEXT = "Currency Text"
-
-        // strings
-        const val BUTTON_TEXT = "Button Text"
-
-        // enums
-
-        const val BUTTON_COLOR = "Button Color"
-
-        // booleans
-        const val IS_LOADING = "Loading"
-
-        const val IS_ENABLED = "Enabled"
-        const val RIGHT_CASH_DISPLAY = "Right Cash Display"
-        const val RIGHT_COIN_DISPLAY = "Right Coin Display"
-        const val LOCK_ICON_DISPLAY = "Lock Icon Display"
-        const val AD_ICON_DISPLAY = "Ad Icon Display"
-        const val CURRENCY_TEXT_DISPLAY = "Currency Text Display"
-
-        // triggers
-        const val PRESS = "Press"
-        const val LOADING = "Loading"
-        const val WIGGLE = "Wiggle"
+        const val FIRE = "Fire"
     }
 
     object MatchMaking {
@@ -157,6 +130,18 @@ object RiveProps {
     }
 
     object ContestNav {
+        const val VIEWMODEL_NAME = "ViewModel1"
+
+        const val FIRE = "Fire"
+    }
+
+    object Confetti {
+        const val VIEWMODEL_NAME = "ViewModel1"
+
+        const val FIRE = "FIRE"
+    }
+
+    object Store {
         const val VIEWMODEL_NAME = "ViewModel1"
 
         const val FIRE = "Fire"
@@ -256,23 +241,6 @@ object RiveProps {
 }
 
 
-data class PrimaryButtonParams(
-    val text: String,
-
-    val currency: String = "",
-    val width: Float = 0f,
-    val buttonColor: String,
-
-    val showCash: Boolean = false,
-    val showCoin: Boolean = false,
-    val showLock: Boolean = false,
-    val showAd: Boolean = false,
-    val showCurrencyText: Boolean = false,
-
-    val isLoading: Boolean = false,
-    val isEnabled: Boolean = false,
-)
-
 data class RewardsParams(
     val price: Float,
     val itemType: String, // COIN / GEM
@@ -280,7 +248,8 @@ data class RewardsParams(
     val lives: Float,
     val energy: Float,
     val coinStart: Float,
-    val gemStart: Float
+    val gemStart: Float,
+//    val itemCount: Float?,
 )
 
 data class MatchMakingParams(
@@ -291,38 +260,7 @@ data class MatchMakingParams(
 )
 object RiveItemConfigs {
 
-    fun primaryButton(params: PrimaryButtonParams) = RiveItemConfig(
 
-        strings = mapOf(
-            RiveProps.PrimaryButton.BUTTON_TEXT to params.text,
-            RiveProps.PrimaryButton.CURRENCY_TEXT to params.currency
-        ),
-
-//        numbers = mapOf(
-//            RiveProps.PrimaryButton.BUTTON_WIDTH to params.width,
-//        ),
-
-        booleans = mapOf(
-            RiveProps.PrimaryButton.IS_LOADING to params.isLoading,
-            RiveProps.PrimaryButton.IS_ENABLED to params.isEnabled
-        ),
-
-        enums = mapOf(
-            RiveProps.PrimaryButton.RIGHT_CASH_DISPLAY to if (params.showCash) "Show" else "Hide",
-            RiveProps.PrimaryButton.RIGHT_COIN_DISPLAY to if (params.showCoin) "Show" else "Hide",
-            RiveProps.PrimaryButton.LOCK_ICON_DISPLAY to if (params.showLock) "Show" else "Hide",
-            RiveProps.PrimaryButton.AD_ICON_DISPLAY to if (params.showAd) "Show" else "Hide",
-
-            RiveProps.PrimaryButton.CURRENCY_TEXT_DISPLAY to if (params.showCurrencyText) "Show" else "Hide",
-            RiveProps.PrimaryButton.BUTTON_COLOR to params.buttonColor
-        ),
-
-        triggers = listOf(
-            RiveProps.PrimaryButton.PRESS,
-            RiveProps.PrimaryButton.LOADING,
-            RiveProps.PrimaryButton.WIGGLE,
-        )
-    )
 
     fun matchMaking(params: MatchMakingParams) = RiveItemConfig(
         strings = mapOf(
@@ -346,6 +284,36 @@ object RiveItemConfigs {
         )
     )
 
+    fun confettiConfig() = RiveItemConfig(
+        triggers = listOf(
+            RiveProps.Confetti.FIRE
+        )
+    )
+
+    fun homeBottomBarConfig() = RiveItemConfig(
+        triggers = listOf(
+            RiveProps.Store.FIRE
+        )
+    )
+
+    fun storeBottomBarConfig() = RiveItemConfig(
+        triggers = listOf(
+            RiveProps.Common.FIRE
+        ),
+    )
+
+    fun contestBottomBarConfig() = RiveItemConfig(
+        triggers = listOf(
+            RiveProps.Common.FIRE
+        ),
+    )
+
+    fun dealsBottomBarConfig() = RiveItemConfig(
+        triggers = listOf(
+            RiveProps.Common.FIRE
+        )
+    )
+
     fun rewards(params: RewardsParams) = RiveItemConfig(
 
         // =========================
@@ -360,6 +328,9 @@ object RiveItemConfigs {
         // Numbers
         // =========================
         numbers = mapOf(
+
+//            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.COIN_ITEM_COUNT}" to params.itemCount,
+
             // Rewards VM
             "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.PRICE_VALUE}" to params.price,
 
@@ -372,6 +343,8 @@ object RiveItemConfigs {
 
             // Gem VM
             "${RiveProps.Gem.VIEWMODEL_NAME}/${RiveProps.Gem.GEM_START_VALUE}" to params.gemStart,
+
+
 
         ),
 

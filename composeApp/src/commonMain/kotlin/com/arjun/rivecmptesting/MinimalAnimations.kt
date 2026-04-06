@@ -11,11 +11,13 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,10 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.arjun.core.rive.RiveComponent
-import com.arjun.core.rive.RiveConfigs
-import com.arjun.core.rive.RiveEvent
 import com.arjun.core.rive.RiveEventCallback
-import com.arjun.core.rive.RiveItemConfigs.contestNav
+import com.arjun.core.rive.RiveItemConfig
 import io.github.alexzhirkevich.compottie.DotLottie
 import io.github.alexzhirkevich.compottie.LottieComposition
 import io.github.alexzhirkevich.compottie.LottieCompositionSpec
@@ -52,30 +52,30 @@ fun LottieNavigationBarItem(
     selectedColor: Color = MaterialTheme.colorScheme.primary,
     unselectedColor: Color = LocalContentColor.current.copy(alpha = 0.6f)
 ) {
+    // Stable per-item state; increment to restart animation
+    val playTick = rememberSaveable(label) { mutableIntStateOf(0) }
     val animatable = rememberLottieAnimatable()
-    val scope = rememberCoroutineScope()
-    val interactionSource = remember { MutableInteractionSource() }
-    val animationJob = remember { mutableStateOf<Job?>(null) }
+
+    LaunchedEffect(playTick.intValue, composition) {
+        val comp = composition ?: return@LaunchedEffect
+        if (playTick.intValue > 0) {
+            animatable.snapTo(comp, 0f)
+            animatable.animate(
+                composition = comp,
+                iterations = 1,
+                continueFromPreviousAnimate = false,
+                speed = 1f
+            )
+        }
+    }
 
     Column(
         modifier = modifier
             .clickable(
-                interactionSource = interactionSource,
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
-                composition?.let { comp ->
-                    // Cancel any ongoing animation
-                    animationJob.value?.cancel()
-                    animationJob.value = scope.launch {
-                        animatable.animate(
-                            composition = comp,
-                            initialProgress = 0f,
-                            continueFromPreviousAnimate = false,
-                            speed = 1f,
-                            iterations = 1
-                        )
-                    }
-                }
+                playTick.intValue++
                 onClick()
             },
         horizontalAlignment = Alignment.CenterHorizontally
@@ -149,6 +149,7 @@ fun MinimalAnimation() {
             },
         contentDescription = "Like",
     )
+
 }
 
 /**
@@ -161,6 +162,8 @@ fun RiveNavigationBarItem(
     onClick: () -> Unit,
     label: String,
     instanceKey: String,
+    fileName: String,
+    riveConfig: RiveItemConfig,
     modifier: Modifier = Modifier,
     iconSize: Dp = 50.dp,
     viewModelName: String = "ViewModel1",
@@ -185,8 +188,8 @@ fun RiveNavigationBarItem(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         RiveComponent(
-            resourceName = RiveConfigs.Files.CONTEST_NAV,
-            config = contestNav(),
+            resourceName = fileName,
+            config = riveConfig,
             instanceKey = instanceKey,
             viewModelName = viewModelName,
             modifier = Modifier.size(iconSize),

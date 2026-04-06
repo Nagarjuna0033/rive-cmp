@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -39,15 +41,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.arjun.core.rive.PrimaryButtonParams
-import com.arjun.core.rive.RiveComponent
-import com.arjun.core.rive.RiveConfigs
-
-import com.arjun.core.rive.RiveEventCallback
-import com.arjun.core.rive.RiveItemConfigs
-import com.arjun.core.rive.RiveProps
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 
 val ColorNeutralWhite = Color(0xFFFFFFFF)
@@ -148,6 +141,7 @@ fun ContestLargeCards(
 
 // ── PrimaryButton accepts tabTag to build a unique instanceKey ────────────────
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PrimaryButton(
     contest: ContestItem,
@@ -156,44 +150,13 @@ fun PrimaryButton(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-
-    val params = remember(contest, isLoading) {
-        PrimaryButtonParams(
-            text = contest.name,
-            showCash = contest.isCash,
-            showLock = contest.isLocked,
-            showCoin = contest.isCoin,
-            isLoading = isLoading,
-            isEnabled = true,
-            buttonColor = "Yellow"
-        )
-    }
-
-    val config = remember(params) {
-        RiveItemConfigs.primaryButton(params)
-    }
-
-    val eventCallback = remember("$tabTag-${contest.id}") {
-        object : RiveEventCallback {
-            override fun onTriggerAnimation(animationName: String) {
-                if (animationName == RiveProps.PrimaryButton.PRESS) {
-                    scope.launch {
-                        isLoading = true
-                        delay(2000)
-                        isLoading = false
-                    }
-                }
-            }
-        }
-    }
-
-    RiveComponent(
-        resourceName = RiveConfigs.Files.PRIMARY_BUTTON,
-        instanceKey = "$tabTag-${contest.id}",
-        modifier = Modifier.height(50.dp).width(150.dp),
-        config = config,
-        viewModelName = "Button",
-        eventCallback = eventCallback,
+    Button(
+        content = {Text(text = "Button")},
+        onClick = {},
+        modifier = Modifier
+            .height(52.dp)
+            .width(205.dp),
+        shapes = ButtonShapes(shape = RoundedCornerShape(16.dp), pressedShape = RoundedCornerShape(16.dp)),
     )
 
 }

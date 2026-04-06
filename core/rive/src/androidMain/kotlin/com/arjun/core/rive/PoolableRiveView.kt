@@ -23,6 +23,8 @@ import app.rive.Fit
 import app.rive.RiveFile
 import app.rive.ViewModelInstance
 import app.rive.core.RiveSurface
+import app.rive.runtime.kotlin.core.Alignment
+import com.arjun.core.rive.utils.RiveAlignment
 import kotlinx.coroutines.isActive
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds

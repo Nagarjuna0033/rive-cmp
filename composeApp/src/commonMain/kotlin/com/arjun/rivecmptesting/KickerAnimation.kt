@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,10 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import com.arjun.core.rive.RewardsParams
 import com.arjun.core.rive.RiveComponent
@@ -46,11 +44,11 @@ import kotlinx.coroutines.delay
 fun KickerAnimation() {
     var controller by remember("MatchMaking") { mutableStateOf<RiveController?>(null) }
     var showPopup by remember { mutableStateOf(true) }
-    var animating by remember { mutableStateOf(false) }
-    val popupAlpha by animateFloatAsState(
-        targetValue = if (animating) 0f else 1f,
-        animationSpec = tween(durationMillis = 800, delayMillis = 200)
-    )
+    var dismissing by remember { mutableStateOf(false) }
+//    val popupAlpha by animateFloatAsState(
+//        targetValue = if (dismissing) 0f else 1f,
+//        animationSpec = tween(durationMillis = 800, delayMillis = 0)
+//    )
 
     val config = rewards(
         RewardsParams(
@@ -60,12 +58,12 @@ fun KickerAnimation() {
             lives = 5f,
             energy = 50f,
             coinStart = 1300f,
-            gemStart = 3000f
+            gemStart = 3000f,
         )
     )
 
     LaunchedEffect(controller) {
-        controller?.setNumber(RiveProps.Kicker.COIN_ITEM_COUNT, 5f)
+        controller?.setNumber(RiveProps.Kicker.COIN_ITEM_COUNT, 20f)
     }
 
     val eventCallback = remember {
@@ -74,23 +72,21 @@ fun KickerAnimation() {
         }
     }
 
-    // Remove popup from tree once fully faded
-    LaunchedEffect(animating) {
-        if (animating) {
-            delay(1200L) // match fade duration + buffer
+    // Remove popup + coins after flight completes
+    LaunchedEffect(dismissing) {
+        if (dismissing) {
+            // let coins fly while popup fades
+            delay(4000L)
             showPopup = false
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-
-        // Rive — always present, drawn above, but ignores all touch events
+    if(showPopup) {
         RiveComponent(
             modifier = Modifier
-                .fillMaxSize()
-                .zIndex(2f)
-                // Let touches pass through to popup by observing but not consuming pointer events
-                .pointerInput(Unit) { /* no-op to avoid interception */ },
+                .fillMaxWidth()
+                .fillMaxHeight(0.5f)
+                .zIndex(1f),
             resourceName = RiveConfigs.Files.KICKER,
             instanceKey = "Kicker",
             config = config,
@@ -98,23 +94,33 @@ fun KickerAnimation() {
             eventCallback = eventCallback,
             onControllerReady = { controller = it },
             fit = RiveFit.CONTAIN,
-            alignment = RiveAlignment.TOP_CENTER
+            alignment = RiveAlignment.TOP_CENTER,
+            batched = false,
         )
+    }
 
-        // Popup fades out while coins fly over it
+
+    Box(modifier = Modifier.fillMaxSize()) {
         if (showPopup) {
+            // Coins + popup together so coins stay visible until we dispose everything
+
+
+
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = popupAlpha }
-                    .background(Color.Black.copy(alpha = 0.5f)),
+//                    .graphicsLayer { alpha = popupAlpha }
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .zIndex(2f),
                 contentAlignment = Alignment.Center
             ) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .padding(24.dp)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .zIndex(3f),
                     elevation = CardDefaults.cardElevation(8.dp)
                 ) {
                     Column(
@@ -126,9 +132,9 @@ fun KickerAnimation() {
                         Text("Collect your coins", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(20.dp))
                         Button(
-                            enabled = !animating,
+                            enabled = !dismissing,
                             onClick = {
-                                animating = true
+                                dismissing = true
                                 controller?.fireTrigger(
                                     "${RiveProps.Button.VIEWMODEL_NAME}/${RiveProps.Button.PRESSED}"
                                 )
@@ -139,6 +145,10 @@ fun KickerAnimation() {
                     }
                 }
             }
+
+
+
+
         }
     }
 }
