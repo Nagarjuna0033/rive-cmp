@@ -16,6 +16,7 @@ class SwiftRiveHandle: IOSRiveHandle {
     private let riveModel: RiveModel
     private let riveViewModel: RiveViewModel
     private var hostingController: UIHostingController<AnyView>?  // kept for potential fallback
+    private var containerView: UIView?
     private var pendingOperations: [() -> Void] = []
     private var boundVMI: RiveDataBindingViewModel.Instance?
     private var triggerListenerIds: [UUID] = []
@@ -89,8 +90,8 @@ class SwiftRiveHandle: IOSRiveHandle {
         riveViewModel.fit = mapFit(fit)
         riveViewModel.alignment = mapAlignment(alignment)
 
-        // Reuse existing RiveView if already created.
-        if let existing = riveViewModel.riveView {
+        // Reuse existing container if already created.
+        if let existing = containerView {
             return existing
         }
 
@@ -105,7 +106,25 @@ class SwiftRiveHandle: IOSRiveHandle {
         riveView.backgroundColor = .clear
         riveView.layer.isOpaque = false
         riveView.clearColor = MTLClearColorMake(0, 0, 0, 0)
-        return riveView
+
+        // Wrap in a transparent parent UIView. Compose Multiplatform's
+        // UIKitView interop layer may paint an opaque backdrop under the
+        // hosted UIView regardless of the `background` param — giving it a
+        // dedicated clear parent isolates RiveView from that.
+        let container = UIView(frame: .zero)
+        container.isOpaque = false
+        container.backgroundColor = .clear
+        container.layer.isOpaque = false
+        riveView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(riveView)
+        NSLayoutConstraint.activate([
+            riveView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            riveView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            riveView.topAnchor.constraint(equalTo: container.topAnchor),
+            riveView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        containerView = container
+        return container
     }
 
 
@@ -254,6 +273,7 @@ class SwiftRiveHandle: IOSRiveHandle {
         riveModel.disableAutoBind()
         boundVMI = nil
         hostingController = nil
+        containerView = nil
     }
 }
 
