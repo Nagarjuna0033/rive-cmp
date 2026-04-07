@@ -154,7 +154,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		7b3tzI1cBmX0nF3ALSwKfzkVmNw=
+		5ah0RtxxVHnZtoU7PLuiMpFQ5iw=
 		</data>
 		<key>Modules/RiveRuntime.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -174,7 +174,7 @@
 		</data>
 		<key>Modules/RiveRuntime.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		TMqNTZEI62qfalvOfXVZTlTf5Kc=
+		zEOyKsqfZ8SFAaHsKdkAxudwNTs=
 		</data>
 		<key>Modules/RiveRuntime.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -194,7 +194,7 @@
 		</data>
 		<key>Modules/RiveRuntime.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		tnXr4kOFsqHfEOl25bLrMXIE0xM=
+		qCebmKi/w7LhjNxoSrQZDOsjVhQ=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -498,7 +498,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			UJQwm8IpCHvReLy/jEwA1qC40eLodMo12M3W4QKQzxM=
+			2MY2qMUzB4Uny8NpS9PskSq2v1c1dPjKNqDqJM1shKE=
 			</data>
 		</dict>
 		<key>Modules/RiveRuntime.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -533,7 +533,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			CYqtb7X9hTnonGDEKFkvASALZHmO8MRabsdHf8yTM1k=
+			T876o8z98LDTAuq4jRJKMt3uEuLLDtc6YjU2nsd09dU=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
