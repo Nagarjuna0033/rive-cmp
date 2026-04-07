@@ -1,7 +1,8 @@
 package app.rive
 
-import android.graphics.Bitmap
-import android.hardware.HardwareBuffer
+import android.content.Context
+import android.graphics.SurfaceTexture
+import android.view.TextureView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -11,195 +12,200 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import app.rive.core.ArtboardHandle
 import app.rive.core.CommandQueue
 import app.rive.core.RiveSurface
+import app.rive.core.RiveWorker
 import app.rive.core.StateMachineHandle
 import kotlinx.coroutines.isActive
+import androidx.compose.runtime.withFrameNanos
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 
+private const val BATCH_TAG = "Rive/Batch"
 private const val BATCH_DRAW_TAG = "Rive/Batch/Draw"
 
 /**
- * Renders multiple Rive items using per-item offscreen surfaces and Compose DrawScope.
+ * Describes a single item within a batched Rive surface.
  *
- * Each item gets its own offscreen [RiveSurface] (PBuffer). The render loop draws each
- * artboard to its surface via [CommandQueue.drawToHardwareBuffer], wraps the result as a
- * zero-copy hardware [Bitmap], and distributes it to the item via [Modifier.drawBehind].
- *
- * This eliminates the TextureView position sync problem: [drawBehind] runs during
- * Compose's DRAW phase (after LAYOUT), so position is always correct.
+ * Holds the rendering state needed to draw one artboard/state-machine pair
+ * at a specific viewport position on a shared surface.
  */
-class RiveBatchRenderer(private val riveWorker: CommandQueue) {
+data class BatchItemDescriptor(
+    val artboardHandle: ArtboardHandle,
+    val stateMachineHandle: StateMachineHandle,
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int,
+    val fit: Fit,
+    val backgroundColor: Int,
+)
 
-    private class ItemState(
-        var artboardHandle: ArtboardHandle,
-        var stateMachineHandle: StateMachineHandle,
-        var width: Int,
-        var height: Int,
-        var fit: Fit,
-        var backgroundColor: Int,
-        var onBitmap: (ImageBitmap) -> Unit,
-    ) {
-        var surface: RiveSurface? = null
-        var hwBufferA: HardwareBuffer? = null
-        var hwBufferB: HardwareBuffer? = null
-        var useA: Boolean = true
-        var isFirstFrame: Boolean = true
+/**
+ * Coordinates batched rendering of multiple Rive items on a single shared surface.
+ *
+ * Each [RiveBatchItem] registers/unregisters itself with the coordinator, providing its
+ * [BatchItemDescriptor]. The [RiveBatchSurface] reads all registered items each frame
+ * and renders them in a single `drawBatch` call.
+ */
+class RiveBatchCoordinator {
+    private val items = ConcurrentHashMap<Any, BatchItemDescriptor>()
+
+    /** The root X position of the batch surface in the composition's root coordinates. */
+    var surfaceRootX: Float = 0f
+        internal set
+
+    /** The root Y position of the batch surface in the composition's root coordinates. */
+    var surfaceRootY: Float = 0f
+        internal set
+
+    // Pre-allocated batch arrays — power-of-2 sized to avoid reallocation thrashing.
+    private var capacity = 0
+    internal var artboardHandles = LongArray(0); private set
+    internal var smHandles = LongArray(0); private set
+    internal var viewportXs = IntArray(0); private set
+    internal var viewportYs = IntArray(0); private set
+    internal var viewportWidths = IntArray(0); private set
+    internal var viewportHeights = IntArray(0); private set
+    internal var fits = ByteArray(0); private set
+    internal var alignments = ByteArray(0); private set
+    internal var scaleFactors = FloatArray(0); private set
+    internal var clearColors = IntArray(0); private set
+    // StateMachineHandle references for advancing (not passed to JNI).
+    internal var smHandleRefs = arrayOfNulls<StateMachineHandle>(0); private set
+
+    // Snapshot array for iteration — avoids ConcurrentHashMap iterator allocation per frame.
+    private var snapshot = arrayOfNulls<Map.Entry<Any, BatchItemDescriptor>>(0)
+
+    /** Register an item for batched rendering. */
+    internal fun register(key: Any, descriptor: BatchItemDescriptor) {
+        items[key] = descriptor
     }
 
-    private val items = ConcurrentHashMap<Any, ItemState>()
+    /** Unregister an item (e.g. when it leaves composition). */
+    internal fun unregister(key: Any) {
+        items.remove(key)
+    }
 
-    fun register(
-        key: Any,
-        artboardHandle: ArtboardHandle,
-        stateMachineHandle: StateMachineHandle,
-        width: Int,
-        height: Int,
-        fit: Fit,
-        backgroundColor: Int,
-        onBitmap: (ImageBitmap) -> Unit,
-    ) {
-        val existing = items[key]
-        if (existing != null) {
-            if (existing.width != width || existing.height != height) {
-                existing.surface?.let { riveWorker.destroyRiveSurface(it) }
-                existing.surface = null
-                existing.hwBufferA?.close()
-                existing.hwBufferA = null
-                existing.hwBufferB?.close()
-                existing.hwBufferB = null
-            }
-            existing.artboardHandle = artboardHandle
-            existing.stateMachineHandle = stateMachineHandle
-            existing.width = width
-            existing.height = height
-            existing.fit = fit
-            existing.backgroundColor = backgroundColor
-            existing.onBitmap = onBitmap
-            return
+    /** Round up to next power of 2 (minimum 4). */
+    private fun nextPowerOf2(n: Int): Int {
+        if (n <= 4) return 4
+        var v = n - 1
+        v = v or (v shr 1)
+        v = v or (v shr 2)
+        v = v or (v shr 4)
+        v = v or (v shr 8)
+        v = v or (v shr 16)
+        return v + 1
+    }
+
+    /**
+     * Fills pre-allocated arrays with current item data.
+     * Uses power-of-2 sizing to avoid reallocation during scroll.
+     * Returns the number of items filled (0 means nothing to draw).
+     */
+    internal fun fillBatchArrays(): Int {
+        val count = items.size
+        if (count == 0) return 0
+
+        // Only reallocate when count exceeds capacity or drops below half.
+        if (count > capacity || count < capacity / 4) {
+            capacity = nextPowerOf2(count)
+            artboardHandles = LongArray(capacity)
+            smHandles = LongArray(capacity)
+            viewportXs = IntArray(capacity)
+            viewportYs = IntArray(capacity)
+            viewportWidths = IntArray(capacity)
+            viewportHeights = IntArray(capacity)
+            fits = ByteArray(capacity)
+            alignments = ByteArray(capacity)
+            scaleFactors = FloatArray(capacity)
+            clearColors = IntArray(capacity)
+            smHandleRefs = arrayOfNulls(capacity)
+            snapshot = arrayOfNulls(capacity)
         }
-        items[key] = ItemState(
-            artboardHandle, stateMachineHandle,
-            width, height, fit, backgroundColor, onBitmap,
-        )
-    }
 
-    fun unregister(key: Any) {
-        val item = items.remove(key) ?: return
-        item.surface?.let { riveWorker.destroyRiveSurface(it) }
-        item.hwBufferA?.close()
-        item.hwBufferB?.close()
-        // Bitmaps from wrapHardwareBuffer — let GC handle (RenderThread race)
-    }
-
-    fun renderFrame(deltaTime: Duration) {
-        for ((_, item) in items) {
-            if (item.width <= 0 || item.height <= 0) continue
-
-            if (item.surface == null) {
-                item.surface = riveWorker.createImageSurface(item.width, item.height)
-            }
-            if (item.hwBufferA == null) {
-                item.hwBufferA = HardwareBuffer.create(
-                    item.width, item.height, HardwareBuffer.RGBA_8888, 1,
-                    HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
-                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
-                )
-            }
-            if (item.hwBufferB == null) {
-                item.hwBufferB = HardwareBuffer.create(
-                    item.width, item.height, HardwareBuffer.RGBA_8888, 1,
-                    HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
-                        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
-                )
-            }
-
-            // On the first frame after registration, advance with zero delta so
-            // auto-play animations start from the beginning instead of skipping
-            // frames consumed between state machine creation and registration.
-            val effectiveDelta = if (item.isFirstFrame) {
-                item.isFirstFrame = false
-                Duration.ZERO
-            } else {
-                deltaTime
-            }
-            riveWorker.advanceStateMachine(item.stateMachineHandle, effectiveDelta)
-
-            val hwBuffer = if (item.useA) item.hwBufferA!! else item.hwBufferB!!
-
-            try {
-                riveWorker.drawToHardwareBuffer(
-                    item.artboardHandle,
-                    item.stateMachineHandle,
-                    item.surface!!,
-                    hwBuffer,
-                    item.width,
-                    item.height,
-                    item.fit,
-                    item.backgroundColor,
-                )
-            } catch (e: Exception) {
-                RiveLog.e(BATCH_DRAW_TAG) { "drawToHardwareBuffer failed: ${e.message}" }
-                continue
-            }
-
-            val bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, null)
-            if (bitmap != null) {
-                item.onBitmap(bitmap.asImageBitmap())
-            }
-            item.useA = !item.useA
+        var i = 0
+        for (entry in items.entries) {
+            if (i >= capacity) break
+            val item = entry.value
+            artboardHandles[i] = item.artboardHandle.handle
+            smHandles[i] = item.stateMachineHandle.handle
+            viewportXs[i] = item.x
+            viewportYs[i] = item.y
+            viewportWidths[i] = item.width
+            viewportHeights[i] = item.height
+            fits[i] = item.fit.nativeMapping
+            alignments[i] = item.fit.alignment.nativeMapping
+            scaleFactors[i] = item.fit.scaleFactor
+            clearColors[i] = item.backgroundColor
+            smHandleRefs[i] = item.stateMachineHandle
+            i++
         }
-    }
 
-    fun destroy() {
-        for ((_, item) in items) {
-            item.surface?.let { riveWorker.destroyRiveSurface(it) }
-            item.hwBufferA?.close()
-            item.hwBufferB?.close()
-        }
-        items.clear()
+        return i
     }
 }
 
-val LocalRiveBatchRenderer = compositionLocalOf<RiveBatchRenderer?> { null }
+/**
+ * CompositionLocal that provides the [RiveBatchCoordinator] to child [RiveBatchItem]s.
+ */
+val LocalRiveBatchCoordinator = compositionLocalOf<RiveBatchCoordinator?> { null }
 
-@Deprecated("Use LocalRiveBatchRenderer", replaceWith = ReplaceWith("LocalRiveBatchRenderer"))
-val LocalRiveBatchCoordinator = LocalRiveBatchRenderer
-
+/**
+ * A shared rendering surface that batches all child [RiveBatchItem] draws into a single
+ * GPU pass.
+ *
+ * Wraps a single [TextureView] and renders all registered items each frame using
+ * [CommandQueue.drawBatch], reducing per-frame GPU context switches from N to 1.
+ *
+ * Uses a [NestedScrollConnection] to intercept scroll deltas before the render loop,
+ * pre-correcting item positions so they are accurate when [fillBatchArrays] reads them.
+ *
+ * @param riveWorker The Rive command queue / worker to use for rendering.
+ * @param modifier Modifier applied to the surface layout.
+ * @param surfaceClearColor Color to clear the entire surface with before drawing items.
+ * @param content Composable content that should contain [RiveBatchItem]s.
+ */
 @Composable
 fun RiveBatchSurface(
     riveWorker: CommandQueue,
     modifier: Modifier = Modifier,
-    @Suppress("UNUSED_PARAMETER")
-    surfaceClearColor: Int = Color.Transparent.toArgb(), // Deprecated: no shared surface to clear; each item uses backgroundColor
+    surfaceClearColor: Int = Color.Transparent.toArgb(),
     content: @Composable () -> Unit,
 ) {
-    val renderer = remember { RiveBatchRenderer(riveWorker) }
+    val coordinator = remember { RiveBatchCoordinator() }
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    DisposableEffect(renderer) {
-        onDispose { renderer.destroy() }
+    var surface by remember { mutableStateOf<RiveSurface?>(null) }
+
+    // Cleanup: destroy the RiveSurface when it changes or on dispose.
+    DisposableEffect(surface) {
+        val nonNullSurface = surface ?: return@DisposableEffect onDispose { }
+        onDispose {
+            riveWorker.destroyRiveSurface(nonNullSurface)
+        }
     }
 
-    LaunchedEffect(lifecycleOwner, renderer) {
-        RiveLog.d(BATCH_DRAW_TAG) { "Starting DrawScope render loop" }
+    // Render loop: advances state machines and draws all items each frame.
+    LaunchedEffect(lifecycleOwner, surface) {
+        val currentSurface = surface ?: return@LaunchedEffect
+        RiveLog.d(BATCH_DRAW_TAG) { "Starting batched render loop" }
 
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             var lastFrameTime = Duration.ZERO
@@ -215,24 +221,113 @@ fun RiveBatchSurface(
                     dt
                 }
 
-                renderer.renderFrame(deltaTime)
+                val count = coordinator.fillBatchArrays()
+                if (count == 0) continue
+
+                // Advance all state machines.
+                for (j in 0 until count) {
+                    val smRef = coordinator.smHandleRefs[j] ?: continue
+                    riveWorker.advanceStateMachine(smRef, deltaTime)
+                }
+
+                try {
+                    riveWorker.drawBatch(
+                        currentSurface,
+                        coordinator.artboardHandles,
+                        coordinator.smHandles,
+                        coordinator.viewportXs,
+                        coordinator.viewportYs,
+                        coordinator.viewportWidths,
+                        coordinator.viewportHeights,
+                        coordinator.fits,
+                        coordinator.alignments,
+                        coordinator.scaleFactors,
+                        coordinator.clearColors,
+                        surfaceClearColor,
+                    )
+                } catch (e: Exception) {
+                    RiveLog.e(BATCH_DRAW_TAG) { "drawBatch failed: ${e.message}" }
+                }
             }
         }
     }
 
-    CompositionLocalProvider(LocalRiveBatchRenderer provides renderer) {
-        Layout(
-            modifier = modifier,
-            content = { content() },
-        ) { measurables, constraints ->
-            val placeables = measurables.map { it.measure(constraints) }
-            layout(constraints.maxWidth, constraints.maxHeight) {
-                placeables.forEach { it.placeRelative(0, 0) }
+    // Track the surface's root position so items can compute relative offsets.
+    val positionTrackingModifier = modifier
+        .onGloballyPositioned { coords ->
+            val pos = coords.positionInRoot()
+            coordinator.surfaceRootX = pos.x
+            coordinator.surfaceRootY = pos.y
+        }
+
+    Layout(
+        modifier = positionTrackingModifier,
+        content = {
+            // Provide the coordinator to children and render content FIRST (behind).
+            CompositionLocalProvider(LocalRiveBatchCoordinator provides coordinator) {
+                content()
             }
+
+            // Single TextureView SECOND (on top as transparent overlay).
+            // isOpaque = false means only Rive items are visible; rest is transparent.
+            AndroidView(factory = { context: Context ->
+                TextureView(context).apply {
+                    isOpaque = false
+                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                        override fun onSurfaceTextureAvailable(
+                            newSurfaceTexture: SurfaceTexture,
+                            width: Int,
+                            height: Int
+                        ) {
+                            RiveLog.d(BATCH_TAG) {
+                                "Batch surface texture available ($width x $height)"
+                            }
+                            surface = riveWorker.createRiveSurface(newSurfaceTexture)
+                        }
+
+                        override fun onSurfaceTextureDestroyed(
+                            destroyedSurfaceTexture: SurfaceTexture
+                        ): Boolean {
+                            RiveLog.d(BATCH_TAG) { "Batch surface texture destroyed" }
+                            surface = null
+                            return false
+                        }
+
+                        override fun onSurfaceTextureSizeChanged(
+                            surfaceTexture: SurfaceTexture,
+                            width: Int,
+                            height: Int
+                        ) {
+                            RiveLog.d(BATCH_TAG) {
+                                "Batch surface texture size changed ($width x $height)"
+                            }
+                        }
+
+                        override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {}
+                    }
+                }
+            })
+        }
+    ) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(constraints) }
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeables.forEach { it.placeRelative(0, 0) }
         }
     }
 }
 
+/**
+ * A single Rive item rendered within a [RiveBatchSurface].
+ *
+ * Instead of creating its own rendering surface, this composable registers itself
+ * with the parent [RiveBatchCoordinator] and is drawn as part of the batch.
+ *
+ * @param file The [RiveFile] to instantiate the artboard from.
+ * @param modifier Modifier for layout sizing and interaction.
+ * @param viewModelInstance Optional [ViewModelInstance] to bind to the state machine.
+ * @param fit How the artboard should be fitted within this item's bounds.
+ * @param backgroundColor Per-item clear color before drawing.
+ */
 @Composable
 fun RiveBatchItem(
     file: RiveFile,
@@ -240,59 +335,61 @@ fun RiveBatchItem(
     viewModelInstance: ViewModelInstance? = null,
     fit: Fit = Fit.Contain(),
     backgroundColor: Int = Color.Transparent.toArgb(),
-    artboardName: String? = null,
-    stateMachineName: String? = null,
 ) {
-    val renderer = LocalRiveBatchRenderer.current
+    val coordinator = LocalRiveBatchCoordinator.current
         ?: error("RiveBatchItem must be placed inside a RiveBatchSurface")
 
     val riveWorker = file.riveWorker
-    val artboardToUse = rememberArtboard(file, artboardName)
+    val artboardToUse = rememberArtboard(file)
     val artboardHandle = artboardToUse.artboardHandle
-    val stateMachineToUse = rememberStateMachine(artboardToUse, stateMachineName)
+    val stateMachineToUse = rememberStateMachine(artboardToUse)
     val stateMachineHandle = stateMachineToUse.stateMachineHandle
 
-    var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-
-    // Bind VMI synchronously during composition so the command is queued
-    // BEFORE any render commands. The CommandQueue processes in order:
-    // bind → advance → draw, so the first rendered frame already has state B.
-    @Suppress("RememberReturnType")
-    remember(stateMachineHandle, viewModelInstance) {
-        viewModelInstance?.let {
-            riveWorker.bindViewModelInstance(stateMachineHandle, it.instanceHandle)
-        }
-    }
-
+    // Bind the view model instance to the state machine if provided.
     LaunchedEffect(stateMachineHandle, viewModelInstance) {
         viewModelInstance ?: return@LaunchedEffect
-        viewModelInstance.dirtyFlow.collect { }
+        riveWorker.bindViewModelInstance(stateMachineHandle, viewModelInstance.instanceHandle)
+        // Keep collecting dirty flow to stay responsive to VMI changes.
+        viewModelInstance.dirtyFlow.collect { /* no-op, just keeps collection alive */ }
     }
 
+    // Unregister when leaving composition.
     DisposableEffect(stateMachineHandle) {
         onDispose {
-            renderer.unregister(stateMachineHandle)
+            coordinator.unregister(stateMachineHandle)
         }
     }
 
-    val combinedModifier = modifier
-        .onGloballyPositioned { coords ->
-            if (coords.isAttached && coords.size.width > 0 && coords.size.height > 0) {
-                renderer.register(
-                    key = stateMachineHandle,
+    // Helper to update position in the coordinator from layout coordinates.
+    val updatePosition = { coords: androidx.compose.ui.layout.LayoutCoordinates ->
+        if (coords.isAttached) {
+            val rootPos = coords.positionInRoot()
+            val size = coords.size
+            val relativeX = (rootPos.x - coordinator.surfaceRootX).toInt()
+            val relativeY = (rootPos.y - coordinator.surfaceRootY).toInt()
+            coordinator.register(
+                stateMachineHandle,
+                BatchItemDescriptor(
                     artboardHandle = artboardHandle,
                     stateMachineHandle = stateMachineHandle,
-                    width = coords.size.width,
-                    height = coords.size.height,
+                    x = relativeX,
+                    y = relativeY,
+                    width = size.width,
+                    height = size.height,
                     fit = fit,
                     backgroundColor = backgroundColor,
-                    onBitmap = { bitmap = it },
                 )
-            }
+            )
         }
-        .drawBehind {
-            bitmap?.let { drawImage(it) }
-        }
+    }
+
+    // Register/update position on layout AND placement (scroll).
+    // onGloballyPositioned fires on layout changes.
+    // onPlaced fires on every placement including scroll offsets.
+    // pointerInput forwards touch events to the state machine.
+    val combinedModifier = modifier
+        .onGloballyPositioned(updatePosition)
+        .onPlaced(updatePosition)
         .pointerInput(stateMachineHandle, fit) {
             awaitPointerEventScope {
                 while (true) {
@@ -330,9 +427,6 @@ fun RiveBatchItem(
         modifier = combinedModifier,
         content = {}
     ) { _, constraints ->
-        // Use 0 if unbounded — item MUST have explicit size from modifier chain.
-        val w = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
-        val h = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
-        layout(w, h) {}
+        layout(constraints.maxWidth, constraints.maxHeight) {}
     }
 }
