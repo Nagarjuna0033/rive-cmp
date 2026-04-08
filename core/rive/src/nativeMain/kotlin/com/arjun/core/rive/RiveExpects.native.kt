@@ -107,7 +107,6 @@ actual fun RiveComponent(
         factory = { handle.getUIView() },
         modifier = modifier,
         properties = UIKitInteropProperties(
-            isInteractive = true,
             isNativeAccessibilityEnabled = false,
             placedAsOverlay = true,
         ),
