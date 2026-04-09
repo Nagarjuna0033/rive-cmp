@@ -33,9 +33,13 @@ These additions are mirrored in this repo at `SDK/swift/src/` for reference / so
 
 ### Cherry-picked fixes (on top of base)
 
-| Date applied | Upstream commit (rive-runtime) | Title | Files | Why |
-|---|---|---|---|---|
-| 2026-04-07 | `0d15033d` | fix(renderer) gamma correction fix (#11949) | `renderer/src/shaders/atomic_draw.glsl` (16 lines) | iOS Metal PLS atomic shader was applying gamma correction at the wrong stage in the pipeline, causing semi-transparent dark/colored shapes to render as opaque white. Affected the "selected" highlight card behind nav bar icons (visible on iOS, not Android because Android uses a different shader path). Self-contained 1-file change. |
+None currently applied.
+
+#### Reverted / verified inert
+
+| Date | Upstream commit | Title | Outcome |
+|---|---|---|---|
+| 2026-04-07 → reverted 2026-04-09 | `0d15033d` | fix(renderer) gamma correction fix (#11949) | Cherry-picked into `renderer/src/shaders/atomic_draw.glsl` while debugging the iOS "white box behind nav icons" bug. **Verified inert at the binary level**: a clean rebuild after reverting the patch produced byte-identical iOS / iOS-sim / Catalyst / tvOS / tvOS-sim / xrOS / xrOS-sim binaries (only macOS build metadata differed). The touched shader file lives in a code path that the Metal-based iOS builds don't compile, so the patch never reached any binary we ship. **Do not re-apply** without first verifying it actually changes the iOS binary. The real white-box fix turned out to be on the Compose side: pass `UIKitInteropProperties(placedAsOverlay = true)` to `UIKitView`. See `RiveExpects.native.kt`. |
 
 ### How to rebuild the xcframework
 See `docs/aar-build-process.md` for the Android AAR. For iOS:

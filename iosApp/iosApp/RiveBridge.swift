@@ -95,18 +95,13 @@ class SwiftRiveHandle: IOSRiveHandle {
             return existing
         }
 
-        // Create RiveView directly — bypasses UIHostingController/SwiftUI
-        // which add opaque system backgrounds that can't be reliably cleared.
-        // RiveView inherits from MTKView. MTKView.clearColor defaults to
-        // opaque black (alpha=1), so Metal fills the background before drawing.
-        // Setting alpha=0 makes it transparent — matching Android's behavior
-        // where beginFrame uses surfaceClearColor = Color.Transparent.
+        // RiveViewModel.createRiveView() returns a fully-configured RiveView.
+        // Upstream's RiveView.setModel() already sets isOpaque = false on iOS,
+        // so the embedded MTKView composites with a transparent background.
+        // (Earlier transparency tweaks here were investigative no-ops; the actual
+        // white-box fix lives on the Compose side via UIKitInteropProperties
+        // placedAsOverlay = true — see RiveExpects.native.kt.)
         let riveView = riveViewModel.createRiveView()
-        riveView.isOpaque = false
-        riveView.backgroundColor = .clear
-        riveView.layer.isOpaque = false
-        riveView.clearColor = MTLClearColorMake(0, 0, 0, 0)
-
         containerView = riveView
         return riveView
     }

@@ -26,7 +26,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		7B65891D2F58AAFE006DC0EC /* RiveRuntime 2.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = "RiveRuntime 2.xcframework"; sourceTree = "<group>"; };
 		7B65891F2F58AB52006DC0EC /* RiveRuntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = RiveRuntime.xcframework; path = ../SDK/swift/RiveRuntime.xcframework; sourceTree = "<group>"; };
 		EFCFE6D120C8694365ADF978 /* RiveCmpTesting.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RiveCmpTesting.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -73,7 +72,6 @@
 			isa = PBXGroup;
 			children = (
 				EFCFE6D120C8694365ADF978 /* RiveCmpTesting.app */,
-				7B65891D2F58AAFE006DC0EC /* RiveRuntime 2.xcframework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
