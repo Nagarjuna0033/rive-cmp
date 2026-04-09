@@ -425,7 +425,25 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
         print("[SwiftRiveBridge] 🎨 loadAsset — uniqueName: \(uniqueName), assetName: \(assetName), type: \(type(of: asset))")
 
         guard let config = assetMap[uniqueName] ?? assetMap[assetName] else {
-            print("[SwiftRiveBridge]   ❌ No config for asset: \(uniqueName) (\(assetName)). Available keys: \(assetMap.keys.joined(separator: ", "))")
+            // No config mapping — if the .riv has embedded data for this asset,
+            // decode and inject it directly (the fallback chain has no other
+            // loader when loadCdn is false, so returning false would discard
+            // the embedded bytes entirely).
+            if !data.isEmpty {
+                if let fontAsset = asset as? RiveFontAsset {
+                    let decodedFont = factory.decodeFont(data)
+                    fontAsset.font(decodedFont)
+                    print("[SwiftRiveBridge] Font decoded from embedded data: \(uniqueName)")
+                    return true
+                }
+                if let imageAsset = asset as? RiveImageAsset {
+                    let decoded = factory.decodeImage(data)
+                    imageAsset.renderImage(decoded)
+                    print("[SwiftRiveBridge] Image decoded from embedded data: \(uniqueName)")
+                    return true
+                }
+            }
+            print("[SwiftRiveBridge]   ❌ No config and no embedded data for asset: \(uniqueName) (\(assetName)). Available keys: \(assetMap.keys.joined(separator: ", "))")
             return false
         }
         print("[SwiftRiveBridge]   ✅ Config found — resourceName: \(config.resourceName)")
