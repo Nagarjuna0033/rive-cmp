@@ -6,7 +6,7 @@ object RiveConfigs {
     // ── File resource names (.riv without extension) ───────────────────
     object Files {
 
-        const val MATCHMAKING = "matchmaking.riv"
+        const val MATCHMAKING = "matchmaking 2.riv"
 
         const val CONTEST_NAV = "contest_nav.riv"
 

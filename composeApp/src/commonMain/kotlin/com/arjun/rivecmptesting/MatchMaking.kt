@@ -89,6 +89,7 @@ fun MatchMakingScreen(onBack: () -> Unit = {}) {
         modifier = Modifier.fillMaxSize()
     ) {
         RiveComponent(
+            modifier = Modifier.fillMaxSize(),
             resourceName = RiveConfigs.Files.MATCHMAKING,
             instanceKey = "MatchMaking",
             config = config,

@@ -1,5 +1,6 @@
 package com.arjun.core.rive
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -105,7 +106,7 @@ actual fun RiveComponent(
     }
 
     UIKitView(
-        factory = { handle.getUIView() },
+        factory = { handle.getUIView(fit = fit, alignment = alignment) },
         modifier = modifier,
         properties = UIKitInteropProperties(
             isNativeAccessibilityEnabled = false,

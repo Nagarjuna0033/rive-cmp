@@ -110,6 +110,12 @@ class SwiftRiveHandle: IOSRiveHandle {
         print("[SwiftRiveHandle]   ✅ RiveView created: \(type(of: riveView)), frame: \(riveView.frame), isOpaque: \(riveView.isOpaque), backgroundColor: \(String(describing: riveView.backgroundColor))")
         containerView = riveView
         print("[SwiftRiveHandle]   ✅ containerView set, returning riveView")
+
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            print("FRAME:", riveView.frame)
+        }
+
         return riveView
     }
 
@@ -510,7 +516,7 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
 // MARK: - RiveBridgeFromBundle
 // Loads .riv files and assets from the app Bundle instead of the Documents directory.
 
-class RiveBridgeFromBundle: NSObject, IOSRiveBridge {
+class SwiftRiveBridgeFromBundle: NSObject, IOSRiveBridge {
 
     private var loadedConfigs: [String: [String: RiveAssetConfig]] = [:]
 
