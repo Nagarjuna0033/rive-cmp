@@ -506,3 +506,213 @@ class SwiftRiveBridge: NSObject, IOSRiveBridge {
         return false
     }
 }
+
+// MARK: - RiveBridgeFromBundle
+// Loads .riv files and assets from the app Bundle instead of the Documents directory.
+
+class RiveBridgeFromBundle: NSObject, IOSRiveBridge {
+
+    private var loadedConfigs: [String: [String: RiveAssetConfig]] = [:]
+
+    func preloadFiles(configs: [RiveFileConfig]) -> Bool {
+        print("[RiveBridgeFromBundle] 📦 preloadFiles — configCount: \(configs.count)")
+        for config in configs {
+            print("[RiveBridgeFromBundle]   🔍 Config: \(config.resourceName), assetCount: \(config.assets.count)")
+            if loadedConfigs[config.resourceName] != nil {
+                print("[RiveBridgeFromBundle]   ⏭️ Already loaded, skipping: \(config.resourceName)")
+                continue
+            }
+
+            var assetMap: [String: RiveAssetConfig] = [:]
+            for asset in config.assets {
+                assetMap[asset.assetId] = asset
+                print("[RiveBridgeFromBundle]     📌 Asset: assetId=\(asset.assetId), resourceName=\(asset.resourceName)")
+            }
+
+            let fileName = Self.stripRivExtension(config.resourceName)
+            guard Bundle.main.url(forResource: fileName, withExtension: "riv") != nil else {
+                print("[RiveBridgeFromBundle]   ❌ .riv not found in bundle: \(fileName).riv")
+                return false
+            }
+            print("[RiveBridgeFromBundle]   ✅ .riv found in bundle: \(fileName).riv")
+
+            loadedConfigs[config.resourceName] = assetMap
+            print("[RiveBridgeFromBundle]   ✅ Cached: \(config.resourceName)")
+        }
+        print("[RiveBridgeFromBundle] ✅ preloadFiles complete — totalLoaded: \(loadedConfigs.count)")
+        return true
+    }
+
+    func createHandle(
+        resourceName: String,
+        artboardName: String?,
+        stateMachineName: String?
+    ) -> IOSRiveHandle? {
+        print("\n================ RIVE CREATE HANDLE (Bundle) ================")
+        print("[RiveBridgeFromBundle] 🔨 createHandle — resourceName: \(resourceName), artboardName: \(artboardName ?? "nil"), stateMachineName: \(stateMachineName ?? "nil")")
+
+        guard let assetMap = loadedConfigs[resourceName] else {
+            print("[RiveBridgeFromBundle] ❌ No config for: \(resourceName). Available: \(loadedConfigs.keys.joined(separator: ", "))")
+            print("=============================================================\n")
+            return nil
+        }
+        print("[RiveBridgeFromBundle]   ✅ Config found — assetMapCount: \(assetMap.count)")
+
+        let fileName = Self.stripRivExtension(resourceName)
+        print("[RiveBridgeFromBundle]   📂 Loading .riv from bundle: \(fileName).riv")
+
+        guard let rivURL = Bundle.main.url(forResource: fileName, withExtension: "riv"),
+              let rivData = try? Data(contentsOf: rivURL) else {
+            print("[RiveBridgeFromBundle]   ❌ .riv not found in bundle: \(fileName).riv")
+            print("=============================================================\n")
+            return nil
+        }
+        print("[RiveBridgeFromBundle]   ✅ .riv loaded from bundle, size: \(rivData.count) bytes")
+
+        do {
+            print("[RiveBridgeFromBundle]   🔨 Creating RiveFile (loadCdn: false, customAssetLoader: yes)")
+            let riveFile = try RiveFile(
+                data: rivData,
+                loadCdn: false,
+                customAssetLoader: { [assetMap] asset, data, factory in
+                    print("[RiveBridgeFromBundle]   🎨 customAssetLoader — asset: \(asset.name()), uniqueName: \(asset.uniqueName())")
+                    let result = Self.loadAsset(
+                        asset: asset,
+                        data: data,
+                        factory: factory,
+                        assetMap: assetMap
+                    )
+                    print("[RiveBridgeFromBundle]   🎨 customAssetLoader result: \(result) for: \(asset.name())")
+                    return result
+                }
+            )
+            print("[RiveBridgeFromBundle]   ✅ RiveFile created")
+            let model = RiveModel(riveFile: riveFile)
+            print("[RiveBridgeFromBundle]   ✅ RiveModel created")
+            let handle = SwiftRiveHandle(
+                riveModel: model,
+                artboardName: artboardName,
+                stateMachineName: stateMachineName
+            )
+            print("[RiveBridgeFromBundle]   ✅ SwiftRiveHandle created")
+            print("=============================================================\n")
+            return handle
+        } catch {
+            print("[RiveBridgeFromBundle]   ❌ Failed to create RiveFile for \(resourceName): \(error)")
+            print("=============================================================\n")
+            return nil
+        }
+    }
+
+    func isFileLoaded(resourceName: String) -> Bool {
+        let result = loadedConfigs[resourceName] != nil
+        print("[RiveBridgeFromBundle] 🔎 isFileLoaded — resourceName: \(resourceName), result: \(result)")
+        return result
+    }
+
+    func clearAll() {
+        print("[RiveBridgeFromBundle] 🧹 clearAll — clearing \(loadedConfigs.count) configs")
+        loadedConfigs.removeAll()
+        print("[RiveBridgeFromBundle] ✅ clearAll complete")
+    }
+
+    // MARK: - Helpers
+
+    private static func stripRivExtension(_ name: String) -> String {
+        name.hasSuffix(".riv") ? String(name.dropLast(4)) : name
+    }
+
+    // MARK: - Asset Loading
+
+    private static func loadAsset(
+        asset: RiveFileAsset,
+        data: Data,
+        factory: RiveFactory,
+        assetMap: [String: RiveAssetConfig]
+    ) -> Bool {
+        let uniqueName = asset.uniqueName()
+        let assetName = asset.name()
+        print("[RiveBridgeFromBundle] 🎨 loadAsset — uniqueName: \(uniqueName), assetName: \(assetName), type: \(type(of: asset))")
+
+        guard let config = assetMap[uniqueName] ?? assetMap[assetName] else {
+            // No config mapping — if the .riv has embedded data for this asset,
+            // decode and inject it directly (the fallback chain has no other
+            // loader when loadCdn is false, so returning false would discard
+            // the embedded bytes entirely).
+            if !data.isEmpty {
+                if let fontAsset = asset as? RiveFontAsset {
+                    let decodedFont = factory.decodeFont(data)
+                    fontAsset.font(decodedFont)
+                    print("[SwiftRiveBridge] Font decoded from embedded data: \(uniqueName)")
+                    return true
+                }
+                if let imageAsset = asset as? RiveImageAsset {
+                    let decoded = factory.decodeImage(data)
+                    imageAsset.renderImage(decoded)
+                    print("[SwiftRiveBridge] Image decoded from embedded data: \(uniqueName)")
+                    return true
+                }
+            }
+            print("[SwiftRiveBridge]   ❌ No config and no embedded data for asset: \(uniqueName) (\(assetName)). Available keys: \(assetMap.keys.joined(separator: ", "))")
+            return false
+        }
+        print("[RiveBridgeFromBundle]   ✅ Config found — resourceName: \(config.resourceName)")
+
+        let rawName = config.resourceName
+        let resourceName: String
+        let configExt: String?
+        if let dotIndex = rawName.lastIndex(of: ".") {
+            resourceName = String(rawName[rawName.startIndex..<dotIndex])
+            configExt = String(rawName[rawName.index(after: dotIndex)...])
+        } else {
+            resourceName = rawName
+            configExt = nil
+        }
+        print("[RiveBridgeFromBundle]   📝 Parsed — resourceName: \(resourceName), configExt: \(configExt ?? "nil")")
+
+        if let fontAsset = asset as? RiveFontAsset {
+            print("[RiveBridgeFromBundle]   🔤 Asset is a font")
+            let extensions = [configExt, asset.fileExtension(), "ttf", "otf"].compactMap { $0 }
+            print("[RiveBridgeFromBundle]   🔍 Trying extensions: \(extensions)")
+            for ext in extensions {
+                print("[RiveBridgeFromBundle]     📂 Trying bundle: \(resourceName).\(ext)")
+                if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
+                   let fontData = try? Data(contentsOf: url) {
+                    print("[RiveBridgeFromBundle]     ✅ Font data found, size: \(fontData.count) bytes")
+                    let decodedFont = factory.decodeFont(fontData)
+                    fontAsset.font(decodedFont)
+                    print("[RiveBridgeFromBundle]   ✅ Font injected: \(uniqueName) from \(resourceName).\(ext)")
+                    return true
+                } else {
+                    print("[RiveBridgeFromBundle]     ⚠️ Not found in bundle: \(resourceName).\(ext)")
+                }
+            }
+            print("[RiveBridgeFromBundle]   ❌ Font not found in bundle: \(uniqueName), resource: \(rawName)")
+            return false
+        }
+
+        if let imageAsset = asset as? RiveImageAsset {
+            print("[RiveBridgeFromBundle]   🖼️ Asset is an image")
+            let extensions = [configExt, asset.fileExtension(), "webp", "png", "jpg", "jpeg"].compactMap { $0 }
+            print("[RiveBridgeFromBundle]   🔍 Trying extensions: \(extensions)")
+            for ext in extensions {
+                print("[RiveBridgeFromBundle]     📂 Trying bundle: \(resourceName).\(ext)")
+                if let url = Bundle.main.url(forResource: resourceName, withExtension: ext),
+                   let imageData = try? Data(contentsOf: url) {
+                    print("[RiveBridgeFromBundle]     ✅ Image data found, size: \(imageData.count) bytes")
+                    let decoded = factory.decodeImage(imageData)
+                    imageAsset.renderImage(decoded)
+                    print("[RiveBridgeFromBundle]   ✅ Image injected: \(uniqueName) from \(resourceName).\(ext)")
+                    return true
+                } else {
+                    print("[RiveBridgeFromBundle]     ⚠️ Not found in bundle: \(resourceName).\(ext)")
+                }
+            }
+            print("[RiveBridgeFromBundle]   ❌ Image not found in bundle: \(uniqueName), resource: \(rawName)")
+            return false
+        }
+
+        print("[RiveBridgeFromBundle]   ⚠️ Unhandled asset type: \(type(of: asset)) for \(uniqueName)")
+        return false
+    }
+}

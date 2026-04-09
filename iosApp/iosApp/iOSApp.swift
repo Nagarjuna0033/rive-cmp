@@ -6,7 +6,8 @@ import ComposeApp
 struct iOSApp: App {
 
     init() {
-        IOSRivePlatform.shared.bridge = SwiftRiveBridge()
+        // IOSRivePlatform.shared.bridge = SwiftRiveBridge()
+        IOSRivePlatform.shared.bridge = SwiftRiveBridgeFromBundle()
     }
 
     var body: some Scene {
