@@ -151,6 +151,8 @@ actual fun RiveComponent(
 
     val vmi = rememberViewModelInstance(riveFile)
 
+
+
     val controller = remember(vmi, fileManager) {
         AndroidRiveController(
             vmi = vmi,
@@ -169,6 +171,8 @@ actual fun RiveComponent(
     remember(vmi, config) {
         controller.applyConfig(config)
     }
+
+
 
     // Trigger flows
     LaunchedEffect(vmi) {

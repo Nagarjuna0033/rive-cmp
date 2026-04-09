@@ -98,8 +98,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            isDebuggable = true
+        }
         getByName("release") {
             isMinifyEnabled = false
+            isDebuggable = false
         }
         create("benchmark") {
             initWith(buildTypes.getByName("release"))

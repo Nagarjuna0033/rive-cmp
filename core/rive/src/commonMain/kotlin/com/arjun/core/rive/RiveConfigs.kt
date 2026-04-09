@@ -27,8 +27,8 @@ object RiveConfigs {
     object AssetIds {
         const val MATCHMAKING_FONT = "Outfit-4229794"
 
-        const val KICKER_GEM_IMAGE = "gemlcon-5704807.png"
-        const val KICKER_COIN_IMAGE = "coinlcon-5704813.png"
+        const val KICKER_GEM_IMAGE = "gemIcon-5704807.png"
+        const val KICKER_COIN_IMAGE = "coinIcon-5704813.png"
         const val KICKER_FONT_1 = "Mochiy Pop One-4229287.ttf"
         const val KICKER_FONT_2 = "Do Hyeon-1495980.ttf"
         const val KICKER_FONT_3 = "Outfit-4229794.ttf"
@@ -147,96 +147,108 @@ object RiveProps {
         const val FIRE = "Fire"
     }
 
-    // =========================
-    // Rewards ViewModel
-    // =========================
     object Kicker {
 
         const val VIEWMODEL_NAME = "Rewards"
 
-        // Numbers
-        const val SPAWN_AMOUNT = "SpawnAmount"
-        const val NUMBER_OF_COINS_OR_GEMS = "NumberOfCoinsOrGems"
-        const val COUNTER_TO_TOTAL_NUMBER = "CounterToTotalNumber"
+        // =========================
+        // ROOT PROPERTIES
+        // =========================
+        const val ITEM_COUNT = "Item_count"
         const val COUNTER = "Counter"
-        const val COIN_ITEM_COUNT = "Coin_Item_Count"
-        const val GEM_ICON_COUNT = "Gem_Icon_Count"
-
-        const val BONE_TOP_DISTANCE = "BoneTopDistance"
-        const val BONE_BOTTOM_LEFT_DISTANCE = "BoneBottomLeftDistance"
-        const val COIN_BONE_TOP_LEFT_DISTANCE = "CoinBoneTopLeftDistance"
-        const val GEM_BONE_TOP_LEFT_DISTANCE = "GemBoneTopLeftDistance"
+        const val COUNTER_TO_TOTAL_NUMBER = "CounterToTotalNumber"
 
         const val PRICE_VALUE = "Price_Value"
         const val HEIGHT = "Height"
         const val WIDTH = "With"
 
-        // Colors
         const val COLOR = "Color"
-        const val BAR_COLOR = "Bar_Color"
 
-        // Energy
-        const val LIVES = "Lives"
-        const val ENERGY_BAR = "Energy_Bar"
-
-        // Enum
-        const val ITEM_SELECTION = "Item_Selection"
-
-        object ItemSelectionValues {
-            const val VIEWMODEL_NAME = "Item"
-            const val COIN = "Coin"
-            const val GEM = "Gem"
+        // =========================
+        // PARTICLES
+        // =========================
+        object Particle {
+            const val MAX_X = "ParticlePositionMaximumXVariation"
+            const val MAX_Y = "ParticlePositionMaximumYVariation"
+            const val START_X = "ParticleStartX"
+            const val START_Y = "ParticleStartY"
+            const val END_X = "ParticleEndX"
+            const val END_Y = "ParticleEndY"
+            const val MAX_SCALE = "ParticleMaximumScaleVariance"
+            const val MIN_SCALE = "ParticleMinimumScaleVariance"
         }
-    }
 
-    // =========================
-    // Button ViewModel
-    // =========================
-    object Button {
+        // =========================
+        // HUD
+        // =========================
+        object Hud {
+            const val TEXT_X = "HudTextXOffset"
+            const val TEXT_Y = "HudTextYOffset"
+            const val X = "HudXOffset"
+            const val Y = "HudYOffset"
+        }
 
-        const val VIEWMODEL_NAME = "Button"
-        const val TEXT = "Item_Text"
+        // =========================
+        // BONE
+        // =========================
+        object Bone {
+            const val TOP = "BoneTopDistance"
+            const val BOTTOM_LEFT = "BoneBottomLeftDistance"
+        }
 
-        const val PRESSED = "Pressed"
-    }
+        // =========================
+        // ITEM (Enum)
+        // =========================
+        object Item {
 
-    // =========================
-    // Coin ViewModel
-    // =========================
-    object Coin {
+            const val VIEWMODEL_NAME = "Item"
+            const val SELECTION = "Item_Selection"
 
-        const val VIEWMODEL_NAME = "Coin"
+            object Values {
+                const val COIN = "Coin"
+                const val GEM = "Gem"
+            }
+        }
 
-        const val ITEM_SELECTION = "Item_Selection"
-        const val GEM_START_VALUE = "gemStartValue"
-        const val COIN_START_VALUE = "coinStartValue"
+        // =========================
+        // BUTTON
+        // =========================
+        object Button {
 
-        const val ICON_REACT = "Icon_React"
-    }
+            const val VIEWMODEL_NAME = "Button"
+            const val TEXT = "Item_Text"
+            const val STATE = "State_1"
+            const val PRESSED = "Pressed"
+        }
 
-    // =========================
-    // Gem ViewModel
-    // =========================
-    object Gem {
+        // =========================
+        // COIN
+        // =========================
+        object Coin {
 
-        const val VIEWMODEL_NAME = "Gem"
+            const val VIEWMODEL_NAME = "Coin"
 
-        const val ITEM_SELECTION = "Item_Selection"
-        const val GEM_START_VALUE = "gemStartValue"
-        const val COIN_START_VALUE = "coinStartValue"
-        const val ICON_REACT = "Icon_React"
-    }
+            const val SELECTION = "Item_Selection"
+            const val GEM_START = "gemStartValue"
+            const val COIN_START = "coinStartValue"
 
-    // =========================
-    // Energy Bar ViewModel
-    // =========================
-    object EnergyBar {
+            const val ICON_REACT = "Icon_React"
+        }
 
-        const val VIEWMODEL_NAME = "Energy_Bar"
+        // =========================
+        // GEM
+        // =========================
+        object Gem {
 
-        const val BAR_COLOR = "Bar_Color"
-        const val LIVES = "Lives"
-        const val ENERGY_BAR = "Energy_Bar"
+            const val VIEWMODEL_NAME = "Gem"
+
+            const val SELECTION = "Item_Selection"
+            const val GEM_START = "gemStartValue"
+            const val COIN_START = "coinStartValue"
+
+            const val ICON_REACT = "Icon_React"
+        }
+
     }
 }
 
@@ -244,12 +256,22 @@ object RiveProps {
 data class RewardsParams(
     val price: Float,
     val itemType: String, // COIN / GEM
-    val buttonText: String,
-    val lives: Float,
-    val energy: Float,
+    val itemCount: Float,
     val coinStart: Float,
     val gemStart: Float,
-//    val itemCount: Float?,
+    val particleMaxX: Float,
+    val particleMaxY: Float,
+    val particleStartX: Float,
+    val particleStartY: Float,
+    val particleEndX: Float,
+    val particleEndY: Float,
+    val particleMaxScale: Float,
+    val particleMinScale: Float,
+
+    val hudTextX: Float,
+    val hudTextY: Float,
+    val hudX: Float,
+    val hudY: Float,
 )
 
 data class MatchMakingParams(
@@ -317,59 +339,68 @@ object RiveItemConfigs {
     fun rewards(params: RewardsParams) = RiveItemConfig(
 
         // =========================
-        // Strings
+        // STRINGS
         // =========================
-        strings = mapOf(
-            // Button VM
-            "${RiveProps.Button.VIEWMODEL_NAME}/${RiveProps.Button.TEXT}" to params.buttonText
-        ),
 
         // =========================
-        // Numbers
+        // NUMBERS
         // =========================
         numbers = mapOf(
 
-//            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.COIN_ITEM_COUNT}" to params.itemCount,
-
-            // Rewards VM
+            // Rewards (root VM)
             "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.PRICE_VALUE}" to params.price,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.ITEM_COUNT}" to params.itemCount,
 
-            // Energy VM
-            "${RiveProps.EnergyBar.VIEWMODEL_NAME}/${RiveProps.EnergyBar.LIVES}" to params.lives,
-            "${RiveProps.EnergyBar.VIEWMODEL_NAME}/${RiveProps.EnergyBar.ENERGY_BAR}" to params.energy,
+            // =========================
+            // PARTICLES
+            // =========================
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.MAX_X}" to params.particleMaxX,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.MAX_Y}" to params.particleMaxY,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.START_X}" to params.particleStartX,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.START_Y}" to params.particleStartY,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.END_X}" to params.particleEndX,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.END_Y}" to params.particleEndY,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.MAX_SCALE}" to params.particleMaxScale,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Particle.MIN_SCALE}" to params.particleMinScale,
 
-            // Coin VM
-            "${RiveProps.Coin.VIEWMODEL_NAME}/${RiveProps.Coin.COIN_START_VALUE}" to params.coinStart,
+            // =========================
+            // HUD
+            // =========================
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Hud.TEXT_X}" to params.hudTextX,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Hud.TEXT_Y}" to params.hudTextY,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Hud.X}" to params.hudX,
+            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.Hud.Y}" to params.hudY,
 
-            // Gem VM
-            "${RiveProps.Gem.VIEWMODEL_NAME}/${RiveProps.Gem.GEM_START_VALUE}" to params.gemStart,
+            // Coin
+            "${RiveProps.Kicker.Coin.VIEWMODEL_NAME}/${RiveProps.Kicker.Coin.COIN_START}" to params.coinStart,
 
-
-
+            // Gem
+            "${RiveProps.Kicker.Gem.VIEWMODEL_NAME}/${RiveProps.Kicker.Gem.GEM_START}" to params.gemStart,
         ),
 
         // =========================
-        // Enums / Strings
+        // ENUMS
         // =========================
         enums = mapOf(
 
-            "${RiveProps.Kicker.VIEWMODEL_NAME}/${RiveProps.Kicker.ItemSelectionValues.VIEWMODEL_NAME}" to params.itemType
-
+            // THIS IS THE CORRECT FIX
+            "${RiveProps.Kicker.Item.VIEWMODEL_NAME}/${RiveProps.Kicker.Item.SELECTION}" to params.itemType
         ),
 
+        // =========================
+        // TRIGGERS
+        // =========================
         triggers = listOf(
 
-            // Coin VM
-            "${RiveProps.Coin.VIEWMODEL_NAME}/${RiveProps.Coin.ICON_REACT}",
+            // Coin animation
+            "${RiveProps.Kicker.Coin.VIEWMODEL_NAME}/${RiveProps.Kicker.Coin.ICON_REACT}",
 
-            // Gem VM
-            "${RiveProps.Gem.VIEWMODEL_NAME}/${RiveProps.Gem.ICON_REACT}",
+            // Gem animation
+            "${RiveProps.Kicker.Gem.VIEWMODEL_NAME}/${RiveProps.Kicker.Gem.ICON_REACT}",
 
-            // Item VM
-            "${RiveProps.Button.VIEWMODEL_NAME}/${RiveProps.Button.PRESSED}",
-
+            // Button click
+            "${RiveProps.Kicker.Button.VIEWMODEL_NAME}/${RiveProps.Kicker.Button.PRESSED}"
         )
-
     )
 
 }

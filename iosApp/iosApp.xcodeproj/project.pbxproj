@@ -54,6 +54,11 @@
 			path = Configuration;
 			sourceTree = "<group>";
 		};
+		7B4D20682F85016800BFBB65 /* New Folder */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "New Folder";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +88,7 @@
 				0266C2E46FA1B6038FCD3615 /* iosApp */,
 				7B65891E2F58AB52006DC0EC /* Frameworks */,
 				1146E33B922EE124ECD831C9 /* Products */,
+				7B4D20682F85016800BFBB65 /* New Folder */,
 			);
 			sourceTree = "<group>";
 		};
@@ -113,6 +119,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				0266C2E46FA1B6038FCD3615 /* iosApp */,
+				7B4D20682F85016800BFBB65 /* New Folder */,
 			);
 			name = iosApp;
 			packageProductDependencies = (

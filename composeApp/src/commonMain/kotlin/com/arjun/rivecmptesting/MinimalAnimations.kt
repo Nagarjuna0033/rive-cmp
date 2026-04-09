@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -157,7 +159,7 @@ fun MinimalAnimation() {
  * Uses contest_nav.riv and handles click via Rive event callback.
  */
 @Composable
-fun RiveNavigationBarItem(
+fun RowScope.AddItem(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
@@ -184,7 +186,9 @@ fun RiveNavigationBarItem(
     }
 
     Column(
-        modifier = modifier,
+        modifier = Modifier
+            .weight(1f)
+            .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         RiveComponent(
@@ -194,7 +198,8 @@ fun RiveNavigationBarItem(
             viewModelName = viewModelName,
             modifier = Modifier.size(iconSize),
             eventCallback = eventCallback,
-            autoPlay = true
+            autoPlay = true,
+            batched = true,
         )
         Text(
             text = label,

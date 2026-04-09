@@ -32,12 +32,7 @@ fun ConfettiAnimation() {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        Column(
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = "Testing")
-        }
+
 
         RiveComponent(
             modifier = Modifier.fillMaxSize(),
@@ -45,9 +40,16 @@ fun ConfettiAnimation() {
             config = confettiConfig(),
             instanceKey = "Confetti",
             viewModelName = RiveProps.Confetti.VIEWMODEL_NAME,
-            fit = RiveFit.CONTAIN,
+            fit = RiveFit.COVER,
             onControllerReady = { controller = it }
         )
+
+        Column(
+            modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = "Testing")
+        }
     }
 
 }
