@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import com.arjun.core.rive.utils.RiveAlignment
@@ -107,7 +108,7 @@ actual fun RiveComponent(
 
     UIKitView(
         factory = { handle.getUIView(fit = fit, alignment = alignment) },
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
         properties = UIKitInteropProperties(
             isNativeAccessibilityEnabled = false,
             placedAsOverlay = true,

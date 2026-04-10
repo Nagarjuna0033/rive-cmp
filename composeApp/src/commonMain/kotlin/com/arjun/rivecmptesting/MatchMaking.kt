@@ -56,13 +56,13 @@ fun MatchMakingScreen(onBack: () -> Unit = {}) {
     LaunchedEffect(controller) {
         controller?.let { ctrl ->
 
-            currentUserName = "Arjun"
+            currentUserName = "आधुनिक मानक हिन्दी"
             ctrl.setImageFromUrl(RiveProps.MatchMaking.CURRENT_USER_PICTURE, "https://media.bebetta.in/public/ProfilePictures/AV_1.webp")
             ctrl.fireTrigger(RiveProps.MatchMaking.INTRO)
 
             delay(3000)
 
-            opponentUserName = "Nag"
+            opponentUserName = "आधुनिक मानक हिन्दी"
             ctrl.setImageFromUrl(RiveProps.MatchMaking.OPPONENT_USER_PICTURE, "https://media.bebetta.in/public/ProfilePictures/AV_1.webp")
 
             isMatchFound = true
