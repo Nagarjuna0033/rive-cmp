@@ -10,7 +10,7 @@ object RiveConfigs {
 
         const val CONTEST_NAV = "contest_nav.riv"
 
-        const val KICKER = "kicker_v1.riv"
+        const val KICKER = "kicker.riv"
 
         const val CONFETTI = "confetti.riv"
 
@@ -26,13 +26,10 @@ object RiveConfigs {
     // ── Asset IDs — must match IDs exported from Rive editor ──────────
     object AssetIds {
         const val MATCHMAKING_FONT = "Outfit-4229794"
-
         const val KICKER_GEM_IMAGE = "gemIcon-5704807"
         const val KICKER_COIN_IMAGE = "coinIcon-5704813"
         const val KICKER_FONT_1 = "Mochiy Pop One-4229287"
-        const val KICKER_FONT_2 = "Do Hyeon-1495980"
-        const val KICKER_FONT_3 = "Outfit-4229794"
-        const val KICKER_FONT_4 = "Oxanium-4229807"
+        const val KICKER_FONT_2 = "Outfit-4229794"
     }
 
     // ── Raw resource names (without extension) ─────────────────────────
@@ -75,8 +72,6 @@ object RiveConfigs {
         assets = listOf(
             RiveAssetConfig(AssetIds.KICKER_FONT_1, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
             RiveAssetConfig(AssetIds.KICKER_FONT_2, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
-            RiveAssetConfig(AssetIds.KICKER_FONT_3, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
-            RiveAssetConfig(AssetIds.KICKER_FONT_4, ResourceNames.FONT_OUTFIT, RiveAssetType.FONT),
             RiveAssetConfig(AssetIds.KICKER_GEM_IMAGE, ResourceNames.KICKER_IC_GEM, RiveAssetType.IMAGE),
             RiveAssetConfig(AssetIds.KICKER_COIN_IMAGE, ResourceNames.KICKER_IC_COIN, RiveAssetType.IMAGE)
         )
@@ -154,44 +149,36 @@ object RiveProps {
         const val ARTBOARD_HEIGHT = 2223f
         const val ARTBOARD_WIDTH = 1252f
 
-        // =========================
         // ROOT PROPERTIES
-        // =========================
-        const val ITEM_COUNT = "Item_count"
+        const val ITEM_COUNT = "Item Count"
 
-        const val PRICE_VALUE = "Price_Value"
+        const val PRICE_VALUE = "Price Value"
 
-        // =========================
         // PARTICLES
-        // =========================
         object Particle {
-            const val MAX_X = "ParticlePositionMaximumXVariation"
-            const val MAX_Y = "ParticlePositionMaximumYVariation"
-            const val START_X = "ParticleStartX"
-            const val START_Y = "ParticleStartY"
-            const val END_X = "ParticleEndX"
-            const val END_Y = "ParticleEndY"
-            const val MAX_SCALE = "ParticleMaximumScaleVariance"
-            const val MIN_SCALE = "ParticleMinimumScaleVariance"
+            const val MAX_X = "Particle Position Maximum X Variation"
+            const val MAX_Y = "Particle Position Maximum Y Variation"
+            const val START_X = "Particle Start X"
+            const val START_Y = "Particle Start Y"
+            const val END_X = "Particle End X"
+            const val END_Y = "Particle End Y"
+            const val MAX_SCALE = "Particle Maximum Scale Variance"
+            const val MIN_SCALE = "Particle Minimum Scale Variance"
         }
 
-        // =========================
         // HUD
-        // =========================
         object Hud {
-            const val TEXT_X = "HudTextXOffset"
-            const val TEXT_Y = "HudTextYOffset"
-            const val X = "HudXOffset"
-            const val Y = "HudYOffset"
+            const val TEXT_X = "Hud Text X Offset"
+            const val TEXT_Y = "Hud Text Y Offset"
+            const val X = "Hud X Offset"
+            const val Y = "Hud Y Offset"
         }
 
-        // =========================
         // ITEM (Enum)
-        // =========================
         object Item {
 
-            const val VIEWMODEL_NAME = "Item_Selection"
-            const val SELECTION = "Item_Selection"
+            const val VIEWMODEL_NAME = "ItemSelection"
+            const val SELECTION = "Item Selection"
 
             object Values {
                 const val COIN = "Coin"
@@ -199,39 +186,27 @@ object RiveProps {
             }
         }
 
-        // =========================
         // BUTTON
-        // =========================
         object Button {
 
             const val VIEWMODEL_NAME = "Button"
             const val PRESSED = "Pressed"
         }
 
-        // =========================
         // COIN
-        // =========================
         object Coin {
 
             const val VIEWMODEL_NAME = "Coin"
+            const val COIN_START_VALUE = "Coin Start Value"
 
-            const val SELECTION = "Item_Selection"
-            const val COIN_START_VALUE = "coinStartValue"
-
-            const val ICON_REACT = "Icon_React"
         }
 
-        // =========================
         // GEM
-        // =========================
         object Gem {
 
             const val VIEWMODEL_NAME = "Gem"
+            const val GEM_START_VALUE = "Coin Start Value"
 
-            const val SELECTION = "Item_Selection"
-            const val GEM_START_VALUE = "coinStartValue"
-
-            const val ICON_REACT = "Icon_React"
         }
 
     }
