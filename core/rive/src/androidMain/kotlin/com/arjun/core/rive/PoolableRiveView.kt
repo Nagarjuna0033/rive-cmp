@@ -206,10 +206,9 @@ private fun createSurfaceTextureListener(
         width: Int,
         height: Int,
     ) {
-        // Recreate the RiveSurface so it renders at the new dimensions.
-        onSurfaceDestroyed()
-        val surface = riveWorker.createRiveSurface(surfaceTexture)
-        onSurfaceCreated(surface)
+        // No-op — matches the upstream SDK pattern (Rive.kt / RiveBatch.kt).
+        // The SurfaceTexture handles size changes internally; recreating the
+        // EGL surface here causes EGL_BAD_ALLOC on some GPUs (Adreno).
     }
 
     override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
