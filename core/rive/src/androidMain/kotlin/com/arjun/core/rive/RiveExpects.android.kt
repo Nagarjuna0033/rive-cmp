@@ -130,6 +130,7 @@ actual fun RiveComponent(
     fit: RiveFit,
     stateMachineName: String?,
     batched: Boolean,
+    background: Boolean,
 ) {
 
     val fileManager = LocalRiveFileManager.current as? AndroidRiveFileManager
@@ -211,8 +212,7 @@ actual fun RiveComponent(
             modifier = modifier,
             viewModelInstance = vmi,
             fit = riveFit,
-//            artboardName = artboardName,
-//            stateMachineName = stateMachineName,
+            background = background,
         )
     } else {
         PoolableRiveView(

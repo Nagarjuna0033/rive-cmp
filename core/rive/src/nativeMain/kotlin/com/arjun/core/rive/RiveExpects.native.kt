@@ -72,6 +72,7 @@ actual fun RiveComponent(
     fit: RiveFit,
     stateMachineName: String?,
     batched: Boolean,
+    background: Boolean,
 ) {
     val bridge = IOSRivePlatform.bridge ?: return
 
