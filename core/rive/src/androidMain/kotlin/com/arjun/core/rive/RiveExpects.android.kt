@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.util.Log
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -103,9 +104,12 @@ actual fun RiveProvider(
             is RiveLoadState.Loading -> loadingContent()
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> {
-                // TEST: skip global RiveBatchSurface to see if
-                // local standalone batch surface works without interference
-                content()
+                RiveBatchSurface(
+                    riveWorker = riveWorker,
+                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+                ) {
+                    content()
+                }
             }
             is RiveLoadState.Idle -> loadingContent()
         }
