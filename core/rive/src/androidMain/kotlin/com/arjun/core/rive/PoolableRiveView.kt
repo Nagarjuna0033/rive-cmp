@@ -56,20 +56,26 @@ internal fun PoolableRiveView(
     val riveWorker = file.riveWorker
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    Log.d(TAG, "[1] PoolableRiveView composing — file=${file.fileHandle}, artboard=$artboardName, sm=$stateMachineName")
+
     // Artboard + state machine handles, created once per file binding.
     val artboardHandle = remember(file, artboardName) {
-        if (artboardName != null) {
+        val h = if (artboardName != null) {
             riveWorker.createArtboardByName(file.fileHandle, artboardName)
         } else {
             riveWorker.createDefaultArtboard(file.fileHandle)
         }
+        Log.d(TAG, "[2] Artboard created — handle=$h")
+        h
     }
     val stateMachineHandle = remember(artboardHandle, stateMachineName) {
-        if (stateMachineName != null) {
+        val h = if (stateMachineName != null) {
             riveWorker.createStateMachineByName(artboardHandle, stateMachineName)
         } else {
             riveWorker.createDefaultStateMachine(artboardHandle)
         }
+        Log.d(TAG, "[3] StateMachine created — handle=$h")
+        h
     }
 
     // Track the RiveSurface created from the TextureView's SurfaceTexture.
@@ -81,15 +87,24 @@ internal fun PoolableRiveView(
     // Bind view model instance to the state machine when provided.
     LaunchedEffect(stateMachineHandle, viewModelInstance) {
         viewModelInstance ?: return@LaunchedEffect
+        Log.d(TAG, "[4] Binding VMI — sm=$stateMachineHandle, vmi=${viewModelInstance.instanceHandle}")
         riveWorker.bindViewModelInstance(stateMachineHandle, viewModelInstance.instanceHandle)
     }
 
     // Render loop: advance SM + draw each frame while lifecycle is RESUMED.
     LaunchedEffect(lifecycleOwner, riveSurface, artboardHandle, stateMachineHandle) {
-        val surface = riveSurface ?: return@LaunchedEffect
+        val surface = riveSurface
+        Log.d(TAG, "[5] Render LaunchedEffect — riveSurface=$surface, artboard=$artboardHandle, sm=$stateMachineHandle")
+        if (surface == null) {
+            Log.w(TAG, "[5] riveSurface is NULL — render loop skipped")
+            return@LaunchedEffect
+        }
 
+        Log.d(TAG, "[6] Starting render loop — waiting for RESUMED lifecycle")
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            Log.d(TAG, "[7] Lifecycle RESUMED — entering frame loop")
             var lastFrameTime = Duration.ZERO
+            var frameCount = 0
             while (isActive) {
                 val deltaTime = withFrameNanos { frameTimeNs ->
                     val frameTime = frameTimeNs.nanoseconds
@@ -104,7 +119,14 @@ internal fun PoolableRiveView(
 
                 riveWorker.advanceStateMachine(stateMachineHandle, deltaTime)
                 riveWorker.draw(artboardHandle, stateMachineHandle, surface, fit, backgroundColor)
-                if (!hasDrawnFirstFrame) hasDrawnFirstFrame = true
+                if (!hasDrawnFirstFrame) {
+                    hasDrawnFirstFrame = true
+                    Log.d(TAG, "[8] First frame drawn!")
+                }
+                frameCount++
+                if (frameCount <= 3 || frameCount % 60 == 0) {
+                    Log.d(TAG, "[9] Frame #$frameCount drawn (dt=${deltaTime})")
+                }
             }
         }
     }
@@ -191,11 +213,18 @@ private fun createSurfaceTextureListener(
         width: Int,
         height: Int,
     ) {
-        val surface = riveWorker.createRiveSurface(surfaceTexture)
-        onSurfaceCreated(surface)
+        Log.d(TAG, "[S1] onSurfaceTextureAvailable — ${width}x${height}")
+        try {
+            val surface = riveWorker.createRiveSurface(surfaceTexture)
+            Log.d(TAG, "[S2] RiveSurface created — $surface")
+            onSurfaceCreated(surface)
+        } catch (e: Exception) {
+            Log.e(TAG, "[S2] FAILED to create RiveSurface", e)
+        }
     }
 
     override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+        Log.d(TAG, "[S3] onSurfaceTextureDestroyed")
         // Return false to keep the SurfaceTexture alive — the TextureView may be recycled.
         onSurfaceDestroyed()
         return false

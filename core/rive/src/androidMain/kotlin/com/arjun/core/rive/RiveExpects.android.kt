@@ -205,6 +205,8 @@ actual fun RiveComponent(
     }
 
 
+    Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, file=${riveFile.fileHandle}")
+
     if (batched) {
         RiveBatchItem(
             file = riveFile,
