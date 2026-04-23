@@ -42,5 +42,4 @@ expect fun RiveComponent(
     fit: RiveFit = RiveFit.CONTAIN,
     stateMachineName: String? = null,
     batched: Boolean = true,
-    background: Boolean = false,
 )
