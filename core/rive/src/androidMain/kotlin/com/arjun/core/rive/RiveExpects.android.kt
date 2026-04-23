@@ -103,12 +103,9 @@ actual fun RiveProvider(
             is RiveLoadState.Loading -> loadingContent()
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> {
-                RiveBatchSurface(
-                    riveWorker = riveWorker,
-                    modifier = Modifier.navigationBarsPadding(),
-                ) {
-                    content()
-                }
+                // TEST: skip global RiveBatchSurface to see if
+                // local standalone batch surface works without interference
+                content()
             }
             is RiveLoadState.Idle -> loadingContent()
         }
