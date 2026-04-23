@@ -225,12 +225,21 @@ actual fun RiveComponent(
 //            stateMachineName = stateMachineName,
         )
     } else {
-        Rive(
-            file = riveFile,
+        // Use a standalone RiveBatchSurface with a single RiveBatchItem
+        // instead of Rive() composable. Rive()'s render loop has a bug
+        // where advanceStateMachine + draw doesn't reflect VMI changes.
+        // RiveBatchSurface's render loop works correctly.
+        val riveWorker = fileManager?.riveWorker ?: return
+        RiveBatchSurface(
+            riveWorker = riveWorker,
             modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
+        ) {
+            RiveBatchItem(
+                file = riveFile,
+                viewModelInstance = vmi,
+                fit = riveFit,
+            )
+        }
     }
 }
 
