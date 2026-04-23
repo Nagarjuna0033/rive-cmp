@@ -89,8 +89,6 @@ internal fun PoolableRiveView(
         viewModelInstance ?: return@LaunchedEffect
         Log.d(TAG, "[4] Binding VMI — sm=$stateMachineHandle, vmi=${viewModelInstance.instanceHandle}")
         riveWorker.bindViewModelInstance(stateMachineHandle, viewModelInstance.instanceHandle)
-        // Keep collecting dirty flow to stay responsive to VMI property changes.
-        viewModelInstance.dirtyFlow.collect { /* no-op, just keeps collection alive */ }
     }
 
     // Render loop: advance SM + draw each frame while lifecycle is RESUMED.

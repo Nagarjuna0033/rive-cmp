@@ -217,13 +217,11 @@ actual fun RiveComponent(
 //            stateMachineName = stateMachineName,
         )
     } else {
-        PoolableRiveView(
+        Rive(
             file = riveFile,
             modifier = modifier,
             viewModelInstance = vmi,
             fit = riveFit,
-            artboardName = artboardName,
-            stateMachineName = stateMachineName,
         )
     }
 }
