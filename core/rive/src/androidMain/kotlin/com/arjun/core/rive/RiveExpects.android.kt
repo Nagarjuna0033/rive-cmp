@@ -25,6 +25,7 @@ import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
 import app.rive.rememberRiveWorker
+import app.rive.ViewModelSource
 import app.rive.rememberViewModelInstance
 import coil3.ImageLoader
 import coil3.request.ImageRequest
@@ -149,7 +150,14 @@ actual fun RiveComponent(
 //        )
 //    }
 
-    val vmi = rememberViewModelInstance(riveFile)
+    val vmiSource = remember(viewModelName) {
+        if (viewModelName.isNotBlank()) {
+            ViewModelSource.Named(viewModelName).defaultInstance()
+        } else {
+            null // let rememberViewModelInstance fall back to default
+        }
+    }
+    val vmi = rememberViewModelInstance(riveFile, source = vmiSource)
 
 
 
