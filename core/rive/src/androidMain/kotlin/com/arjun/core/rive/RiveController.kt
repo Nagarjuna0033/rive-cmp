@@ -30,30 +30,43 @@ class AndroidRiveController(
 
     private val imageAssetCache = ConcurrentHashMap<String, ImageAsset>()
 
+
     override fun setString(propertyName: String, value: String) {
-        runCatching { vmi.setString(propertyName, value) }
-            .onFailure { logError("setString($propertyName)", it) }
+        runCatching { vmi.setString(propertyName, value).also {
+            Log.d("Rive_DEBUG", "setString: $propertyName, $value")
+        } }.onFailure { logError("setString($propertyName)", it) }
     }
 
     override fun setEnum(propertyName: String, value: String) {
         runCatching { vmi.setEnum(propertyName, value) }
+            .also { Log.d("Rive_DEBUG", "setEnum: $propertyName, $value") }
             .onFailure { logError("setEnum($propertyName)", it) }
     }
 
     override fun setBoolean(propertyName: String, value: Boolean) {
         runCatching { vmi.setBoolean(propertyName, value) }
+            .also { Log.d("Rive_DEBUG", "setBoolean: $propertyName, $value") }
             .onFailure { logError("setBoolean($propertyName)", it) }
     }
 
     override fun setNumber(propertyName: String, value: Float) {
         runCatching { vmi.setNumber(propertyName, value) }
+            .also { Log.d("Rive_DEBUG", "setNumber: $propertyName, $value") }
             .onFailure { logError("setNumber($propertyName)", it) }
     }
 
     override fun fireTrigger(triggerName: String) {
         runCatching { vmi.fireTrigger(triggerName) }
+            .also { Log.d("Rive_DEBUG", "fireTrigger: $triggerName") }
             .onFailure { logError("fireTrigger($triggerName)", it) }
     }
+
+//    fun setColor(propertyName: String, value: Int) {
+//        runCatching { vmi.setColor(propertyName, value) }
+//            .also { Log.d("Rive_DEBUG", "setColor: $propertyName, $value") }
+//            .onFailure { logError("setColor($propertyName)", it) }
+//    }
+
 
     // ── CDN URL → Coil bytes → ImageHandle → CommandQueue.setImageProperty ──
 //    override suspend fun setImageFromUrl(propertyName: String, url: String) {

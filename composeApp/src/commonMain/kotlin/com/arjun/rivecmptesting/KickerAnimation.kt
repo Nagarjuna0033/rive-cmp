@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.arjun.core.rive.RiveComponent
 import com.arjun.core.rive.RiveConfigs
@@ -48,180 +49,109 @@ import kotlin.math.min
 
 @Composable
 fun KickerAnimation() {
-    var controller by remember("MatchMaking") { mutableStateOf<RiveController?>(null) }
-    var showPopup by remember { mutableStateOf(true) }
-    var showRive by remember { mutableStateOf(true) }
 
-//    val popupAlpha by animateFloatAsState(
-//        targetValue = if (dismissing) 0f else 1f,
-//        animationSpec = tween(durationMillis = 800, delayMillis = 0)
-//    )
-    val scope = rememberCoroutineScope()
+    var controller by remember { mutableStateOf<RiveController?>(null) }
 
-    val eventCallback = remember {
-        object : RiveEventCallback {
-            override fun onTriggerAnimation(animationName: String) {}
-        }
-    }
+    Dialog(
+        onDismissRequest = { /* no-op or handle */ }
+    ) {
 
-    if(showRive) {
+//            Box(modifier = Modifier.fillMaxSize()) {
+//                Box(
+//                    modifier = Modifier.fillMaxSize(),
+//                    contentAlignment = Alignment.Center
+//                ) {
+//                    Card(
+//                        shape = RoundedCornerShape(16.dp),
+//                        modifier = Modifier
+//                            .padding(16.dp)
+//                            .size(300.dp),
+//                        elevation = CardDefaults.cardElevation(8.dp),
+//                    ) {
+//                        Column(
+//                            modifier = Modifier.padding(20.dp),
+//                            horizontalAlignment = Alignment.CenterHorizontally
+//                        ) {
+//                            Text("You've earned rewards!")
+//                            Spacer(Modifier.height(12.dp))
+//                            Text("Collect your coins")
+//                            Spacer(Modifier.height(20.dp))
+//
+//                            Button(
+//                                onClick = {
+//                                    controller?.let { ctrl ->
+//                                        ctrl.setNumber(RiveProps.Kicker.ITEM_COUNT, 20f)
+//                                        ctrl.setNumber(RiveProps.Kicker.PRICE_VALUE, 15f)
+//
+//                                        ctrl.fireTrigger(
+//                                            "${RiveProps.Kicker.Button.VIEWMODEL_NAME}/${RiveProps.Kicker.Button.PRESSED}"
+//                                        )
+//                                    }
+//                                }
+//                            ) {
+//                                Text("Continue")
+//                            }
+//                        }
+//                    }
+//                }
 
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f))
-        ) {
-
-            val density = LocalDensity.current
-
-            val screenWidthPx = with(density) { maxWidth.toPx() }
-            val screenHeightPx = with(density) { maxHeight.toPx() }
-
-            LaunchedEffect(controller, screenWidthPx, screenHeightPx) {
-
-                val position = RivePosition(
-                    xFraction = 1f,
-                    yFraction = 0f,
-                    offsetX = with(density) { (-100).dp.toPx() },
-                    offsetY = with(density) { (75).dp.toPx() }
-                )
-
-                val centerPosition = RivePosition(
-                    xFraction = 0.5f,
-                    yFraction = 0.4f
-                )
-
-                val (startX, startY) = mapToRive(
-                    position = centerPosition,
-                    screenWidthPx = screenWidthPx,
-                    screenHeightPx = screenHeightPx,
-                    artboardWidth = RiveProps.Kicker.ARTBOARD_WIDTH,
-                    artboardHeight = RiveProps.Kicker.ARTBOARD_HEIGHT
-                )
-
-                val (riveX, riveY) = mapToRive(
-                    position = position,
-                    screenWidthPx = screenWidthPx,
-                    screenHeightPx = screenHeightPx,
-                    artboardWidth = RiveProps.Kicker.ARTBOARD_WIDTH,
-                    artboardHeight = RiveProps.Kicker.ARTBOARD_HEIGHT
-                )
-
-                controller?.let { ctrl ->
-
-
-                    ctrl.setEnum(
-                        "${RiveProps.Kicker.Item.VIEWMODEL_NAME}/${RiveProps.Kicker.Item.SELECTION}",
-                        RiveProps.Kicker.Item.Values.COIN
-                    )
-
-                    ctrl.setNumber(
-                        "${RiveProps.Kicker.Coin.VIEWMODEL_NAME}/${RiveProps.Kicker.Coin.COIN_START_VALUE}",
-                        1300f
-                    )
-
-                    // =========================
-                    // SPREAD
-                    // =========================
-                    ctrl.setNumber(RiveProps.Kicker.Particle.MAX_X, 150f)
-                    ctrl.setNumber(RiveProps.Kicker.Particle.MAX_Y, 150f)
-
-
-                    // =========================
-                    // PARTICLES → FROM CENTER
-                    // =========================
-                    ctrl.setNumber(RiveProps.Kicker.Particle.START_X, startX)
-                    ctrl.setNumber(RiveProps.Kicker.Particle.START_Y, startY)
-
-                    // =========================
-                    // SCALE
-                    // =========================
-                    ctrl.setNumber(RiveProps.Kicker.Particle.MAX_SCALE, 200f)
-                    ctrl.setNumber(RiveProps.Kicker.Particle.MIN_SCALE, 100f)
-
-
-                    // HUD position
-                    ctrl.setNumber(RiveProps.Kicker.Hud.X, riveX)
-                    ctrl.setNumber(RiveProps.Kicker.Hud.Y, riveY)
-
-                    ctrl.setNumber(RiveProps.Kicker.Particle.END_X, riveX)
-                    ctrl.setNumber(RiveProps.Kicker.Particle.END_Y, riveY)
-
-
-                    // =========================
-                    // PARTICLES → TO HUD
-                    // =========================
-                    ctrl.setNumber(RiveProps.Kicker.Particle.END_X, riveX)
-                    ctrl.setNumber(RiveProps.Kicker.Particle.END_Y, riveY)
-
-//                    delay(2000)
-
-                }
-            }
-
-            // Rive view
-            RiveComponent(
-                modifier = Modifier.fillMaxSize(),
-                resourceName = RiveConfigs.Files.KICKER,
-                instanceKey = "Kicker",
-                viewModelName = RiveProps.Kicker.VIEWMODEL_NAME,
-                onControllerReady = { controller = it },
-                eventCallback = eventCallback,
-                fit = RiveFit.CONTAIN,
-                alignment = RiveAlignment.CENTER,
-            )
-        }
-
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (showPopup) {
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
+                BoxWithConstraints(
                     modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(8.dp)
+                        .size(1000.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("You've earned rewards!", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Collect your coins", style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Button(
-                            onClick = {
-                                controller?.let { ctrl ->
-                                    ctrl.setNumber(RiveProps.Kicker.ITEM_COUNT, 20f)
-                                    ctrl.setNumber(RiveProps.Kicker.PRICE_VALUE, 15f)
 
-                                    ctrl.fireTrigger(
-                                        "${RiveProps.Kicker.Button.VIEWMODEL_NAME}/${RiveProps.Kicker.Button.PRESSED}"
-                                    )
+                    val density = LocalDensity.current
+                    val width = with(density) { maxWidth.toPx() }
+                    val height = with(density) { maxHeight.toPx() }
 
-                                }
+                    LaunchedEffect(controller, width, height) {
 
-                                showPopup = false
+                        controller?.let { ctrl ->
 
-                                scope.launch {
-                                    delay(3000)
-                                    showRive = false
-                                }
-                            }
-                        ) {
-                            Text("Continue")
+                            ctrl.setEnum(
+                                "${RiveProps.Kicker.Item.VIEWMODEL_NAME}/${RiveProps.Kicker.Item.SELECTION}",
+                                RiveProps.Kicker.Item.Values.COIN
+                            )
+
+                            ctrl.setNumber(
+                                "${RiveProps.Kicker.Coin.VIEWMODEL_NAME}/${RiveProps.Kicker.Coin.COIN_START_VALUE}",
+                                1300f
+                            )
+
+                            ctrl.setNumber(RiveProps.Kicker.ITEM_COUNT, 20f)
+                            ctrl.setNumber(RiveProps.Kicker.PRICE_VALUE, 15f)
+
+                            // Spread
+                            ctrl.setNumber(RiveProps.Kicker.Particle.MAX_X, 200f)
+                            ctrl.setNumber(RiveProps.Kicker.Particle.MAX_Y, 100f)
+
+
+
+                            ctrl.setNumber(RiveProps.Kicker.Particle.START_X, 500f)
+                            ctrl.setNumber(RiveProps.Kicker.Particle.START_Y, 1500f)
+
+                            ctrl.setNumber(RiveProps.Kicker.Particle.END_X, 500f)
+                            ctrl.setNumber(RiveProps.Kicker.Particle.END_Y, 140f)
+
+                            ctrl.setNumber(RiveProps.Kicker.Hud.X, 500f)
+                            ctrl.setNumber(RiveProps.Kicker.Hud.Y, 140f)
+
+                            ctrl.fireTrigger("${RiveProps.Kicker.Button.VIEWMODEL_NAME}/${RiveProps.Kicker.Button.PRESSED}")
                         }
                     }
-                }
-            }
 
-        }
+                    RiveComponent(
+                        modifier = Modifier.fillMaxSize(),
+                        resourceName = RiveConfigs.Files.KICKER,
+                        instanceKey = "Kicker",
+                        viewModelName = RiveProps.Kicker.VIEWMODEL_NAME,
+                        onControllerReady = { controller = it },
+                        fit = RiveFit.COVER,
+                        alignment = RiveAlignment.CENTER,
+                        batched = false,
+                    )
+                }
     }
 }
 
