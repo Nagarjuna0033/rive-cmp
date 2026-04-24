@@ -52,49 +52,8 @@ fun KickerAnimation() {
 
     var controller by remember { mutableStateOf<RiveController?>(null) }
 
-    Dialog(
-        onDismissRequest = { /* no-op or handle */ }
-    ) {
-
-//            Box(modifier = Modifier.fillMaxSize()) {
-//                Box(
-//                    modifier = Modifier.fillMaxSize(),
-//                    contentAlignment = Alignment.Center
-//                ) {
-//                    Card(
-//                        shape = RoundedCornerShape(16.dp),
-//                        modifier = Modifier
-//                            .padding(16.dp)
-//                            .size(300.dp),
-//                        elevation = CardDefaults.cardElevation(8.dp),
-//                    ) {
-//                        Column(
-//                            modifier = Modifier.padding(20.dp),
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            Text("You've earned rewards!")
-//                            Spacer(Modifier.height(12.dp))
-//                            Text("Collect your coins")
-//                            Spacer(Modifier.height(20.dp))
-//
-//                            Button(
-//                                onClick = {
-//                                    controller?.let { ctrl ->
-//                                        ctrl.setNumber(RiveProps.Kicker.ITEM_COUNT, 20f)
-//                                        ctrl.setNumber(RiveProps.Kicker.PRICE_VALUE, 15f)
-//
-//                                        ctrl.fireTrigger(
-//                                            "${RiveProps.Kicker.Button.VIEWMODEL_NAME}/${RiveProps.Kicker.Button.PRESSED}"
-//                                        )
-//                                    }
-//                                }
-//                            ) {
-//                                Text("Continue")
-//                            }
-//                        }
-//                    }
-//                }
-
+    // TEST: Using Box instead of Dialog to isolate EGL context issue
+    Box(modifier = Modifier.fillMaxSize()) {
                 BoxWithConstraints(
                     modifier = Modifier
                         .size(1000.dp),
