@@ -25,7 +25,9 @@ import app.rive.Rive
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
+import app.rive.rememberArtboard
 import app.rive.rememberRiveWorker
+import app.rive.rememberStateMachine
 import app.rive.ViewModelSource
 import app.rive.rememberViewModelInstance
 import coil3.ImageLoader
@@ -169,19 +171,27 @@ actual fun RiveComponent(
         )
     }
 
-    LaunchedEffect(vmi) {
+    // Create artboard/SM at bridge level so we can bind VMI before onControllerReady.
+    // This ensures triggers fired in onControllerReady reach a bound SM.
+    val artboard = rememberArtboard(riveFile)
+    val stateMachine = rememberStateMachine(artboard)
+
+    // Bind VMI to SM, THEN call onControllerReady.
+    // Previously onControllerReady fired before the SM existed, so one-shot
+    // triggers (fireTrigger) were lost — the SM wasn't bound yet.
+    LaunchedEffect(stateMachine.stateMachineHandle, vmi) {
+        riveFile.riveWorker.bindViewModelInstance(
+            stateMachine.stateMachineHandle, vmi.instanceHandle
+        )
+        Log.d("Rive/Component", "VMI bound to SM, calling onControllerReady")
         onControllerReady?.invoke(controller)
     }
 
     // Apply config synchronously during composition — before the first render frame.
-    // This ensures state B is set BEFORE the artboard is ever drawn. No flash, no blank.
-    // Re-runs when vmi or config changes.
     @SuppressLint("RememberReturnType")
     remember(vmi, config) {
         controller.applyConfig(config)
     }
-
-
 
     // Trigger flows
     LaunchedEffect(vmi) {
@@ -194,7 +204,6 @@ actual fun RiveComponent(
             }
         }
     }
-
 
     val riveFit = when (fit) {
         RiveFit.CONTAIN -> Fit.Contain()
@@ -213,23 +222,18 @@ actual fun RiveComponent(
         }
     }
 
-
     Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, file=${riveFile.fileHandle}")
 
     if (batched) {
         RiveBatchItem(
             file = riveFile,
+            artboard = artboard,
+            stateMachine = stateMachine,
             modifier = modifier,
             viewModelInstance = vmi,
             fit = riveFit,
-//            artboardName = artboardName,
-//            stateMachineName = stateMachineName,
         )
     } else {
-        // Use a standalone RiveBatchSurface with a single RiveBatchItem
-        // instead of Rive() composable. Rive()'s render loop has a bug
-        // where advanceStateMachine + draw doesn't reflect VMI changes.
-        // RiveBatchSurface's render loop works correctly.
         val riveWorker = fileManager?.riveWorker ?: return
         RiveBatchSurface(
             riveWorker = riveWorker,
@@ -237,6 +241,8 @@ actual fun RiveComponent(
         ) {
             RiveBatchItem(
                 file = riveFile,
+                artboard = artboard,
+                stateMachine = stateMachine,
                 viewModelInstance = vmi,
                 fit = riveFit,
             )
