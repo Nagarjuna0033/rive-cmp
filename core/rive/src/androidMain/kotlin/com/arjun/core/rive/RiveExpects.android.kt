@@ -177,14 +177,19 @@ actual fun RiveComponent(
     val stateMachine = rememberStateMachine(artboard)
 
     // Bind VMI to SM, THEN call onControllerReady.
-    // Previously onControllerReady fired before the SM existed, so one-shot
-    // triggers (fireTrigger) were lost — the SM wasn't bound yet.
     LaunchedEffect(stateMachine.stateMachineHandle, vmi) {
         riveFile.riveWorker.bindViewModelInstance(
             stateMachine.stateMachineHandle, vmi.instanceHandle
         )
         Log.d("Rive/Component", "VMI bound to SM, calling onControllerReady")
         onControllerReady?.invoke(controller)
+
+        // TEST: re-fire trigger every 2s to rule out timing vs rendering issue
+        while (true) {
+            kotlinx.coroutines.delay(2000)
+            vmi.fireTrigger("Button/Pressed")
+            Log.d("Rive/Component", "TEST: re-fired Button/Pressed trigger")
+        }
     }
 
     // Apply config synchronously during composition — before the first render frame.
