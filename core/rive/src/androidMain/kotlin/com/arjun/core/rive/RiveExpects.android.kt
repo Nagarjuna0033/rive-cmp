@@ -106,12 +106,8 @@ actual fun RiveProvider(
             is RiveLoadState.Loading -> loadingContent()
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> {
-                RiveBatchSurface(
-                    riveWorker = riveWorker,
-                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                ) {
-                    content()
-                }
+                // TEST: removed global RiveBatchSurface to isolate EGL contention
+                content()
             }
             is RiveLoadState.Idle -> loadingContent()
         }
@@ -183,13 +179,6 @@ actual fun RiveComponent(
         )
         Log.d("Rive/Component", "VMI bound to SM, calling onControllerReady")
         onControllerReady?.invoke(controller)
-
-        // TEST: re-fire trigger every 2s to rule out timing vs rendering issue
-        while (true) {
-            kotlinx.coroutines.delay(2000)
-            vmi.fireTrigger("Button/Pressed")
-            Log.d("Rive/Component", "TEST: re-fired Button/Pressed trigger")
-        }
     }
 
     // Apply config synchronously during composition — before the first render frame.
