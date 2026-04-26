@@ -25,9 +25,7 @@ import app.rive.Rive
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
-import app.rive.rememberArtboard
 import app.rive.rememberRiveWorker
-import app.rive.rememberStateMachine
 import app.rive.ViewModelSource
 import app.rive.rememberViewModelInstance
 import coil3.ImageLoader
@@ -167,17 +165,10 @@ actual fun RiveComponent(
         )
     }
 
-    // Create artboard/SM at bridge level so we can bind VMI before onControllerReady.
-    // This ensures triggers fired in onControllerReady reach a bound SM.
-    val artboard = rememberArtboard(riveFile)
-    val stateMachine = rememberStateMachine(artboard)
-
-    // Bind VMI to SM, THEN call onControllerReady.
-    LaunchedEffect(stateMachine.stateMachineHandle, vmi) {
-        riveFile.riveWorker.bindViewModelInstance(
-            stateMachine.stateMachineHandle, vmi.instanceHandle
-        )
-        Log.d("Rive/Component", "VMI bound to SM, calling onControllerReady")
+    // Call onControllerReady so user code can set VMI properties.
+    // The batch item will create its own artboard/SM and bind VMI internally.
+    LaunchedEffect(controller) {
+        Log.d("Rive/Component", "calling onControllerReady")
         onControllerReady?.invoke(controller)
     }
 
@@ -221,8 +212,6 @@ actual fun RiveComponent(
     if (batched) {
         RiveBatchItem(
             file = riveFile,
-            artboard = artboard,
-            stateMachine = stateMachine,
             modifier = modifier,
             viewModelInstance = vmi,
             fit = riveFit,
@@ -235,8 +224,6 @@ actual fun RiveComponent(
         ) {
             RiveBatchItem(
                 file = riveFile,
-                artboard = artboard,
-                stateMachine = stateMachine,
                 viewModelInstance = vmi,
                 fit = riveFit,
             )
