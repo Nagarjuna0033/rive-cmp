@@ -23,7 +23,6 @@ import app.rive.Fit
 import app.rive.ImageAsset
 import app.rive.Rive
 import app.rive.RiveBatchItem
-import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
 import app.rive.rememberRiveWorker
 import app.rive.ViewModelSource
@@ -217,17 +216,15 @@ actual fun RiveComponent(
             fit = riveFit,
         )
     } else {
-        val riveWorker = fileManager?.riveWorker ?: return
-        RiveBatchSurface(
-            riveWorker = riveWorker,
+        // Use single-item Rive() composable instead of local RiveBatchSurface.
+        // Rive() uses draw() (single artboard) instead of drawBatch(),
+        // has its own TextureView, and settled optimization with dirtyFlow.
+        Rive(
+            file = riveFile,
             modifier = modifier,
-        ) {
-            RiveBatchItem(
-                file = riveFile,
-                viewModelInstance = vmi,
-                fit = riveFit,
-            )
-        }
+            viewModelInstance = vmi,
+            fit = riveFit,
+        )
     }
 }
 
