@@ -23,6 +23,7 @@ import app.rive.Fit
 import app.rive.ImageAsset
 import app.rive.Rive
 import app.rive.RiveBatchItem
+import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
 import app.rive.rememberRiveWorker
 import app.rive.ViewModelSource
@@ -103,8 +104,12 @@ actual fun RiveProvider(
             is RiveLoadState.Loading -> loadingContent()
             is RiveLoadState.Error -> errorContent(state.message)
             is RiveLoadState.Success -> {
-                // TEST: removed global RiveBatchSurface to isolate EGL contention
-                content()
+                RiveBatchSurface(
+                    riveWorker = riveWorker,
+                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+                ) {
+                    content()
+                }
             }
             is RiveLoadState.Idle -> loadingContent()
         }
