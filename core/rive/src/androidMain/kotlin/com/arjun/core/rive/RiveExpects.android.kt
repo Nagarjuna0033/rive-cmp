@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.Fit
 import app.rive.ImageAsset
 import app.rive.Rive
+import app.rive.LocalRiveBatchCoordinator
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
@@ -211,9 +212,13 @@ actual fun RiveComponent(
         }
     }
 
-    Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, file=${riveFile.fileHandle}")
+    // Auto-detect: use batch if inside a RiveBatchSurface, else standalone Rive().
+    val hasParentBatch = LocalRiveBatchCoordinator.current != null
+    val useBatch = batched && hasParentBatch
 
-    if (batched) {
+    Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, hasParentBatch=$hasParentBatch, useBatch=$useBatch, file=${riveFile.fileHandle}")
+
+    if (useBatch) {
         RiveBatchItem(
             file = riveFile,
             modifier = modifier,
@@ -221,9 +226,7 @@ actual fun RiveComponent(
             fit = riveFit,
         )
     } else {
-        // Use single-item Rive() composable instead of local RiveBatchSurface.
-        // Rive() uses draw() (single artboard) instead of drawBatch(),
-        // has its own TextureView, and settled optimization with dirtyFlow.
+        // Standalone Rive() composable — own TextureView, draw() instead of drawBatch().
         Rive(
             file = riveFile,
             modifier = modifier,
