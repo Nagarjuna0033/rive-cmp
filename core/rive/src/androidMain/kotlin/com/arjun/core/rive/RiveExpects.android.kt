@@ -212,27 +212,15 @@ actual fun RiveComponent(
         }
     }
 
-    // Auto-detect: use batch if inside a RiveBatchSurface, else standalone Rive().
-    val hasParentBatch = LocalRiveBatchCoordinator.current != null
-    val useBatch = batched && hasParentBatch
+    Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, file=${riveFile.fileHandle}")
 
-    Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, hasParentBatch=$hasParentBatch, useBatch=$useBatch, file=${riveFile.fileHandle}")
-
-    if (useBatch) {
-        RiveBatchItem(
-            file = riveFile,
-            modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
-    } else {
-        // Standalone Rive() composable — own TextureView, draw() instead of drawBatch().
-        Rive(
-            file = riveFile,
-            modifier = modifier,
-            viewModelInstance = vmi,
-            fit = riveFit,
-        )
-    }
+    // Force all items through the batch path (single shared TextureView).
+    // Multiple TextureViews cause severe texture update lag on Android.
+    RiveBatchItem(
+        file = riveFile,
+        modifier = modifier,
+        viewModelInstance = vmi,
+        fit = riveFit,
+    )
 }
 
