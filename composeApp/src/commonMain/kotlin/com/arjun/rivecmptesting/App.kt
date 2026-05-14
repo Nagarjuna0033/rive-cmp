@@ -141,7 +141,8 @@ private fun MainScreen(onNotificationClick: () -> Unit) {
                 .fillMaxSize()
         ) {
             when (selectedTab) {
-                0 -> ContestLargeCards(contests = homeTabData, tabTag = "home")
+//                0 -> ContestLargeCards(contests = homeTabData, tabTag = "home")
+                0 -> HapticsDemoScreen()
                 1 -> KickerAnimation()
                 2 -> ConfettiAnimation()
 //                2 -> {}

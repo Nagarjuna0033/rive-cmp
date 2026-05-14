@@ -39,8 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.arjun.rivecmptesting.haptics.Haptics
 
 
 val ColorNeutralWhite = Color(0xFFFFFFFF)
@@ -152,7 +154,7 @@ fun PrimaryButton(
 
     Button(
         content = {Text(text = "Button")},
-        onClick = {},
+        onClick = { Haptics.primaryButton() },
         modifier = Modifier
             .height(52.dp)
             .width(205.dp),

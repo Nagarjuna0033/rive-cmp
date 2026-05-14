@@ -1,22 +1,23 @@
 package com.arjun.rivecmptesting
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.RequiresApi
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.viewinterop.AndroidView
-import app.rive.runtime.kotlin.RiveAnimationView
-import app.rive.runtime.kotlin.core.File
 import app.rive.runtime.kotlin.core.Rive
-import org.koin.compose.koinInject
+import com.arjun.rivecmptesting.haptics.AndroidVibrator
+import com.arjun.rivecmptesting.haptics.Haptics
+import com.arjun.rivecmptesting.vibrator.VibratorInitializer
 
 class MainActivity : ComponentActivity() {
 //    var riveFile: File? = null
 
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -25,6 +26,13 @@ class MainActivity : ComponentActivity() {
 //            val fileBytes = inputStream.readBytes()
 //            riveFile = File(fileBytes)
 //        }
+
+        VibratorInitializer.vibrator =
+            AndroidVibrator(
+                applicationContext
+            )
+
+        Haptics.splash()
 
         Rive.init(this)
         appContext = applicationContext

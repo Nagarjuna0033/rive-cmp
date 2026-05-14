@@ -86,17 +86,18 @@ object RiveConfigs {
     )
 
     // ── Preload everything at app start ────────────────────────────────
-    val allConfigs = listOf(
-        matchMaking,
-        kicker,
-        confetti,
-        store,
-        homeBottomNav,
-        tournamentBottomNav,
-        storeBottomNav,
-        dealsBottomNav,
-
-    )
+    val allConfigs = emptyList<RiveFileConfig>()
+//        listOf(
+//        matchMaking,
+//        kicker,
+//        confetti,
+//        store,
+//        homeBottomNav,
+//        tournamentBottomNav,
+//        storeBottomNav,
+//        dealsBottomNav,
+//
+//    )
 }
 
 // ── Pre-built RiveItemConfigs for reuse across features ────────────────
