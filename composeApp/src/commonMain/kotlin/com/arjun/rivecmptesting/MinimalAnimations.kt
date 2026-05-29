@@ -199,7 +199,7 @@ fun RowScope.AddItem(
             modifier = Modifier.size(iconSize),
             eventCallback = eventCallback,
             autoPlay = true,
-            batched = false
+            batched = true,
         )
         Text(
             text = label,

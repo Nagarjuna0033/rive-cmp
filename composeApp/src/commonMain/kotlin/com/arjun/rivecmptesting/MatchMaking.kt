@@ -97,7 +97,6 @@ fun MatchMakingScreen(onBack: () -> Unit = {}) {
             eventCallback = eventCallback,
             onControllerReady = { controller = it },
             fit = RiveFit.COVER,
-            batched = false
         )
     }
 

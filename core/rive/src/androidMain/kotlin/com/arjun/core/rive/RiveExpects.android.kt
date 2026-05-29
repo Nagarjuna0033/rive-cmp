@@ -5,7 +5,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.util.Log
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -22,12 +21,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.Fit
 import app.rive.ImageAsset
 import app.rive.Rive
-import app.rive.LocalRiveBatchCoordinator
 import app.rive.RiveBatchItem
 import app.rive.RiveBatchSurface
 import app.rive.core.CommandQueue
 import app.rive.rememberRiveWorker
-import app.rive.ViewModelSource
 import app.rive.rememberViewModelInstance
 import coil3.ImageLoader
 import coil3.request.ImageRequest
@@ -107,7 +104,7 @@ actual fun RiveProvider(
             is RiveLoadState.Success -> {
                 RiveBatchSurface(
                     riveWorker = riveWorker,
-                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+                    modifier = Modifier.navigationBarsPadding(),
                 ) {
                     content()
                 }
@@ -152,14 +149,7 @@ actual fun RiveComponent(
 //        )
 //    }
 
-    val vmiSource = remember(viewModelName) {
-        if (viewModelName.isNotBlank()) {
-            ViewModelSource.Named(viewModelName).defaultInstance()
-        } else {
-            null // let rememberViewModelInstance fall back to default
-        }
-    }
-    val vmi = rememberViewModelInstance(riveFile, source = vmiSource)
+    val vmi = rememberViewModelInstance(riveFile)
 
 
 
@@ -170,18 +160,19 @@ actual fun RiveComponent(
         )
     }
 
-    // Call onControllerReady so user code can set VMI properties.
-    // The batch item will create its own artboard/SM and bind VMI internally.
-    LaunchedEffect(controller) {
-        Log.d("Rive/Component", "calling onControllerReady")
+    LaunchedEffect(vmi) {
         onControllerReady?.invoke(controller)
     }
 
     // Apply config synchronously during composition — before the first render frame.
+    // This ensures state B is set BEFORE the artboard is ever drawn. No flash, no blank.
+    // Re-runs when vmi or config changes.
     @SuppressLint("RememberReturnType")
     remember(vmi, config) {
         controller.applyConfig(config)
     }
+
+
 
     // Trigger flows
     LaunchedEffect(vmi) {
@@ -194,6 +185,7 @@ actual fun RiveComponent(
             }
         }
     }
+
 
     val riveFit = when (fit) {
         RiveFit.CONTAIN -> Fit.Contain()
@@ -212,15 +204,25 @@ actual fun RiveComponent(
         }
     }
 
-    Log.d("Rive/Component", "RiveComponent — resource=$resourceName, batched=$batched, file=${riveFile.fileHandle}")
 
-    // Force all items through the batch path (single shared TextureView).
-    // Multiple TextureViews cause severe texture update lag on Android.
-    RiveBatchItem(
-        file = riveFile,
-        modifier = modifier,
-        viewModelInstance = vmi,
-        fit = riveFit,
-    )
+    if (batched) {
+        RiveBatchItem(
+            file = riveFile,
+            modifier = modifier,
+            viewModelInstance = vmi,
+            fit = riveFit,
+//            artboardName = artboardName,
+//            stateMachineName = stateMachineName,
+        )
+    } else {
+        PoolableRiveView(
+            file = riveFile,
+            modifier = modifier,
+            viewModelInstance = vmi,
+            fit = riveFit,
+            artboardName = artboardName,
+            stateMachineName = stateMachineName,
+        )
+    }
 }
 
