@@ -37,8 +37,7 @@ kotlin {
             implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
             // Rive SDK provided transitively via core:rive module
             // Transitive dependencies of the local .aar (not auto-resolved)
-//            implementation("app.rive:rive-android:11.4.1")
-//            implementation("androidx.startup:startup-runtime:1.2.0")
+            implementation("androidx.startup:startup-runtime:1.2.0")
             implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
             implementation("com.android.volley:volley:1.2.1")
             implementation("com.getkeepsafe.relinker:relinker:1.4.5")

@@ -41,8 +41,7 @@ fun ConfettiAnimation() {
             instanceKey = "Confetti",
             viewModelName = RiveProps.Confetti.VIEWMODEL_NAME,
             fit = RiveFit.COVER,
-            onControllerReady = { controller = it },
-            batched = false
+            onControllerReady = { controller = it }
         )
 
         Column(
