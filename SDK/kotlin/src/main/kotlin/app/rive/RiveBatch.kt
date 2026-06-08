@@ -30,6 +30,7 @@ import app.rive.core.CommandQueue
 import app.rive.core.RiveSurface
 import app.rive.core.RiveWorker
 import app.rive.core.StateMachineHandle
+import app.rive.core.SurfaceTextureSurface
 import kotlinx.coroutines.isActive
 import androidx.compose.runtime.withFrameNanos
 import java.util.concurrent.ConcurrentHashMap
@@ -198,7 +199,7 @@ fun RiveBatchSurface(
     DisposableEffect(surface) {
         val nonNullSurface = surface ?: return@DisposableEffect onDispose { }
         onDispose {
-            riveWorker.destroyRiveSurface(nonNullSurface)
+            nonNullSurface.close()
         }
     }
 
@@ -233,6 +234,7 @@ fun RiveBatchSurface(
                 try {
                     riveWorker.drawBatch(
                         currentSurface,
+                        count,
                         coordinator.artboardHandles,
                         coordinator.smHandles,
                         coordinator.viewportXs,
@@ -282,7 +284,7 @@ fun RiveBatchSurface(
                             RiveLog.d(BATCH_TAG) {
                                 "Batch surface texture available ($width x $height)"
                             }
-                            surface = riveWorker.createRiveSurface(newSurfaceTexture)
+                            surface = riveWorker.createRiveSurface(SurfaceTextureSurface(newSurfaceTexture))
                         }
 
                         override fun onSurfaceTextureDestroyed(

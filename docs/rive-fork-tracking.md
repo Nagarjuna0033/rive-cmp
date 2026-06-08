@@ -30,22 +30,28 @@ Previously used a forked xcframework with batch rendering additions (`drawBatchC
 - **Upstream**: `https://github.com/rive-app/rive-android.git`
 
 ### Base version
-- **Upstream tag**: `11.3.1` of `rive-app/rive-android` (uses `app.rive` package structure — NOT 9.x which uses `app.rive.runtime`)
-- Pulled fresh on each build via `git archive 11.3.1 -- ...`
+- **Upstream tag**: `11.6.1` of `rive-app/rive-android` (uses `app.rive` package structure — NOT 9.x which uses `app.rive.runtime`)
+- Pulled fresh on each build via `git archive 11.6.1 -- ...`
 
 ### Changes on top of base
 1. **NEW** `kotlin/src/main/kotlin/app/rive/RiveBatch.kt` — `RiveBatchCoordinator`, `RiveBatchSurface`, `RiveBatchItem` for batched rendering into a single shared TextureView/EGL surface
-2. **MODIFIED** `kotlin/src/main/kotlin/app/rive/core/CommandQueue.kt` — added `drawBatch()` method
-3. **MODIFIED** `kotlin/src/main/kotlin/app/rive/core/CommandQueueBridge.kt` — added `cppDrawBatch()` JNI external
-4. **MODIFIED** `kotlin/src/main/cpp/src/bindings/bindings_command_queue.cpp` — added `Java_app_rive_core_CommandQueueJNIBridge_cppDrawBatch` (1 beginFrame → N artboard draws → 1 flush → 1 present), surface clear logic for empty batches
+2. **MODIFIED** `kotlin/src/main/kotlin/app/rive/core/CommandQueue.kt` — added `drawBatch()` method with explicit `count` parameter
+3. **MODIFIED** `kotlin/src/main/kotlin/app/rive/core/CommandQueueBridge.kt` — added `cppDrawBatch()` JNI external with explicit `count` parameter
+4. **MODIFIED** `kotlin/src/main/cpp/src/bindings/bindings_command_queue.cpp` — added `Java_app_rive_core_CommandQueueJNIBridge_cppDrawBatch` (1 beginFrame → N artboard draws → 1 flush → 1 present) using `LazyFramebufferRenderTargetGL`
 
 These are mirrored in this repo's SDK files via the `SDK/kotlin/` overlay.
+
+### Key adaptation from 11.3.1 → 11.6.1
+- Render target type changed from `rive::gpu::RenderTargetGL*` to `LazyFramebufferRenderTargetGL*` with `getOrCreate()` lazy initialization
+- `createRiveSurface(SurfaceTexture)` deprecated; `RiveBatch.kt` now uses `createRiveSurface(SurfaceTextureSurface(...))`
+- `destroyRiveSurface()` deprecated; now uses `surface.close()` directly
+- `cppCreateRiveRenderTarget` removed upstream — no longer in our overlay
 
 ### Cherry-picked fixes
 None yet.
 
 ### Note on current AAR shipped
-- The AAR currently in `app/libs/rive-android-local.aar` is the verbatim binary from commit `fa8fcec0` (2026-03-25) which contains the production-tested batch surface clear logic. The SDK source in this repo's `SDK/` folder is a partial reconstruction and does NOT byte-match this binary. Fix-forward requires getting the real source tree from the BeBetta team.
+- The AAR in `app/libs/rive-android-local.aar` is still built against 11.3.1. It must be rebuilt against 11.6.1 using the updated overlay files to match this branch.
 
 ---
 

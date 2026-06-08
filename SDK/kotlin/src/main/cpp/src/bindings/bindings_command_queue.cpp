@@ -1,13 +1,22 @@
-#include <jni.h>
-#include <android/native_window_jni.h>
 #include <GLES3/gl3.h>
+#include <android/native_window_jni.h>
+#include <atomic>
+#include <cstring>
+#include <future>
+#include <jni.h>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "models/render_context.hpp"
 #include "helpers/android_factories.hpp"
+#include "helpers/conversions.hpp"
 #include "helpers/image_decode.hpp"
 #include "helpers/jni_resource.hpp"
 #include "helpers/rive_log.hpp"
+#include "helpers/tracer.hpp"
 #include "models/jni_renderer.hpp"
+#include "models/lazy_framebuffer_render_target_gl.hpp"
+#include "models/render_context.hpp"
 #include "rive/animation/state_machine_instance.hpp"
 #include "rive/command_queue.hpp"
 #include "rive/command_server.hpp"
@@ -16,13 +25,6 @@
 #include "rive/renderer/gl/render_context_gl_impl.hpp"
 #include "rive/renderer/gl/render_target_gl.hpp"
 #include "rive/renderer/rive_render_image.hpp"
-
-#include <future>
-#include <string>
-#include <utility>
-#include <vector>
-#include <cstring>
-#include <atomic>
 
 using namespace rive_android;
 
@@ -291,6 +293,21 @@ public:
                      jList.get());
     }
 
+    void onDefaultViewModelInfoReceived(const rive::ArtboardHandle,
+                                        uint64_t requestID,
+                                        std::string viewModelName,
+                                        std::string instanceName) override
+    {
+        auto env = GetJNIEnv();
+        auto jViewModelName = MakeJString(env, viewModelName);
+        auto jInstanceName = MakeJString(env, instanceName);
+        m_queue.call("onDefaultViewModelInfoReceived",
+                     "(JLjava/lang/String;Ljava/lang/String;)V",
+                     requestID,
+                     jViewModelName.get(),
+                     jInstanceName.get());
+    }
+
 private:
     JCommandQueue m_queue;
 };
@@ -421,7 +438,7 @@ public:
     }
 
 private:
-    constexpr static const char* TAG = "RiveN/VMIListener";
+    constexpr static auto* TAG = "RiveN/VMIListener";
     JCommandQueue m_queue;
 };
 
@@ -572,7 +589,7 @@ void getProperty(JNIEnv* env,
     (commandQueue->*getter)(viewModelInstanceHandle, propertyPath, requestID);
 }
 
-constexpr static const char* TAG_CQ = "RiveN/CQ";
+constexpr static auto* TAG_CQ = "RiveN/CQ";
 
 /**
  * A factory for use with the command server.
@@ -656,6 +673,7 @@ public:
                                              self,
                                              promise =
                                                  std::move(promise)]() mutable {
+            self->m_commandServerThreadId = std::this_thread::get_id();
             const auto THREAD_NAME = "Rive CmdServer";
             JNIEnv* env = nullptr;
             JavaVMAttachArgs args{.version = JNI_VERSION_1_6,
@@ -767,6 +785,13 @@ public:
         }
     }
 
+    void setTracingEnabled(bool enabled) { m_tracingEnabled = enabled; }
+    bool tracingEnabled() const { return m_tracingEnabled; }
+    bool isCurrentThreadCommandServer() const
+    {
+        return std::this_thread::get_id() == m_commandServerThreadId;
+    }
+
     /**
      * Check if we've logged a missing artboard error already for this draw
      * key.
@@ -787,10 +812,149 @@ public:
 
 private:
     std::thread m_commandServerThread;
+    std::thread::id m_commandServerThreadId;
+    // CommandQueue JNI calls are currently required to run on the main
+    // thread, so this remains a plain bool. If it changes to accept commands
+    // from other threads, this should become atomic.
+    bool m_tracingEnabled = false;
     // Holds that an error has been reported, to avoid log spam
     std::unordered_set<rive::DrawKey> m_artboardNullKeys;
     std::unordered_set<rive::DrawKey> m_stateMachineNullKeys;
 };
+
+/**
+ * Execute one traced state machine advance on the command server thread.
+ *
+ * Necessary because command server's advance command cannot be extended to
+ * include tracing. To avoid three queued messages for trace begin/advance/end,
+ * we advance directly in one runOnce callback.
+ *
+ * If the passed state machine handle fails to resolve or if the advance would
+ * cause a settle, we send an additional advance command to ensure the error or
+ * settled handlers respectively are called.
+ */
+static void executeTracedAdvanceWork(
+    const Tracer* tracer,
+    rive::CommandQueue* commandQueue,
+    rive::CommandServer* server,
+    rive::StateMachineHandle stateMachineHandle,
+    float_t deltaSeconds)
+{
+    TraceScope<Tracer> advanceTrace(*tracer, "Rive/Frame/Advance");
+    auto* stateMachine = server->getStateMachineInstance(stateMachineHandle);
+
+    // When the state machine handle fails to resolve, preserve existing error
+    // callback behavior through the standard command.
+    if (stateMachine == nullptr)
+    {
+        commandQueue->advanceStateMachine(stateMachineHandle, deltaSeconds);
+        return;
+    }
+
+    // If the advance results in the state machine settling, preserve settled
+    // callback behavior with an extra command to advance by 0.
+    if (!stateMachine->advanceAndApply(deltaSeconds))
+    {
+        commandQueue->advanceStateMachine(stateMachineHandle, 0.0f);
+    }
+}
+
+/**
+ * Execute one draw on the command server thread.
+ *
+ * This helper is templated so traced and non-traced paths share one draw
+ * implementation without duplicating frame logic. The tracer type is chosen
+ * at the call site (`Tracer` or `NoopTracer`).
+ */
+template <typename TracerType>
+static void executeDrawWork(const TracerType* tracer,
+                            CommandQueueWithThread* commandQueue,
+                            RenderContext* renderContext,
+                            void* nativeSurface,
+                            rive::ArtboardHandle artboardHandle,
+                            rive::StateMachineHandle stateMachineHandle,
+                            LazyFramebufferRenderTargetGL* renderTarget,
+                            int width,
+                            int height,
+                            rive::Fit fit,
+                            rive::Alignment alignment,
+                            uint32_t clearColor,
+                            float_t scaleFactor,
+                            rive::DrawKey drawKey,
+                            rive::CommandServer* server)
+{
+    auto artboard = server->getArtboardInstance(artboardHandle);
+    if (artboard == nullptr)
+    {
+        if (commandQueue->shouldLogArtboardNull(drawKey))
+        {
+            RiveLogE(
+                TAG_CQ,
+                "Draw failed: Artboard instance is null (only reported once)");
+        }
+        return;
+    }
+
+    auto stateMachine = server->getStateMachineInstance(stateMachineHandle);
+    if (stateMachine == nullptr)
+    {
+        if (commandQueue->shouldLogStateMachineNull(drawKey))
+        {
+            RiveLogE(
+                TAG_CQ,
+                "Draw failed: State machine instance is null (only reported once)");
+        }
+        return;
+    }
+
+    [[maybe_unused]]
+    TraceScope<TracerType> drawTrace(*tracer, "Rive/Frame/Draw");
+
+    auto factory = reinterpret_cast<CommandServerFactory*>(server->factory());
+    auto riveContext = factory->getRenderContext()->riveContext.get();
+    rive::gpu::RenderTargetGL* concreteRenderTarget = nullptr;
+    {
+        [[maybe_unused]]
+        TraceScope<TracerType> beginTrace(*tracer, "Rive/Frame/Draw/Begin");
+        renderContext->beginFrame(nativeSurface);
+        concreteRenderTarget = renderTarget->getOrCreate();
+        riveContext->beginFrame(rive::gpu::RenderContext::FrameDescriptor{
+            .renderTargetWidth = static_cast<uint32_t>(width),
+            .renderTargetHeight = static_cast<uint32_t>(height),
+            .loadAction = rive::gpu::LoadAction::clear,
+            .clearColor = clearColor,
+        });
+    }
+
+    {
+        [[maybe_unused]]
+        TraceScope<TracerType> renderTrace(*tracer, "Rive/Frame/Draw/Render");
+        auto renderer = rive::RiveRenderer(riveContext);
+        renderer.align(fit,
+                       alignment,
+                       rive::AABB(0.0f,
+                                  0.0f,
+                                  static_cast<float_t>(width),
+                                  static_cast<float_t>(height)),
+                       artboard->bounds(),
+                       scaleFactor);
+        artboard->draw(&renderer);
+    }
+
+    {
+        [[maybe_unused]]
+        TraceScope<TracerType> flushTrace(*tracer, "Rive/Frame/Draw/Flush");
+        riveContext->flush({
+            .renderTarget = concreteRenderTarget,
+        });
+    }
+
+    {
+        [[maybe_unused]]
+        TraceScope<TracerType> presentTrace(*tracer, "Rive/Frame/Draw/Present");
+        renderContext->present(nativeSurface);
+    }
+}
 
 extern "C"
 {
@@ -877,6 +1041,17 @@ extern "C"
         commandQueue->unref();
     }
 
+    JNIEXPORT jboolean JNICALL
+    Java_app_rive_core_CommandQueueJNIBridge_isCurrentThreadCommandServer(
+        JNIEnv*,
+        jobject,
+        jlong ref)
+    {
+        auto commandQueue = reinterpret_cast<CommandQueueWithThread*>(ref);
+        return commandQueue->isCurrentThreadCommandServer() ? JNI_TRUE
+                                                            : JNI_FALSE;
+    }
+
     JNIEXPORT jobject JNICALL
     Java_app_rive_core_CommandQueueJNIBridge_cppCreateListeners(
         JNIEnv* env,
@@ -932,6 +1107,17 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
+    Java_app_rive_core_CommandQueueJNIBridge_cppSetTracingEnabled(
+        JNIEnv*,
+        jobject,
+        jlong ref,
+        jboolean enabled)
+    {
+        auto* commandQueue = reinterpret_cast<CommandQueueWithThread*>(ref);
+        commandQueue->setTracingEnabled(static_cast<bool>(enabled));
+    }
+
+    JNIEXPORT void JNICALL
     Java_app_rive_core_CommandQueueJNIBridge_cppLoadFile(JNIEnv* env,
                                                          jobject,
                                                          jlong ref,
@@ -983,6 +1169,25 @@ extern "C"
             handleFromLong<rive::ArtboardHandle>(jArtboardHandle);
 
         commandQueue->requestStateMachineNames(artboardHandle, requestID);
+    }
+
+    JNIEXPORT void JNICALL
+    Java_app_rive_core_CommandQueueJNIBridge_cppGetDefaultViewModelInfo(
+        JNIEnv*,
+        jobject,
+        jlong ref,
+        jlong requestID,
+        jlong jFileHandle,
+        jlong jArtboardHandle)
+    {
+        auto commandQueue = reinterpret_cast<rive::CommandQueue*>(ref);
+        auto fileHandle = handleFromLong<rive::FileHandle>(jFileHandle);
+        auto artboardHandle =
+            handleFromLong<rive::ArtboardHandle>(jArtboardHandle);
+
+        commandQueue->requestDefaultViewModelInfo(artboardHandle,
+                                                  fileHandle,
+                                                  requestID);
     }
 
     JNIEXPORT void JNICALL
@@ -1158,11 +1363,33 @@ extern "C"
         jlong stateMachineHandle,
         jlong deltaTimeNs)
     {
-        auto commandQueue = reinterpret_cast<rive::CommandQueue*>(ref);
+        auto* commandQueue = reinterpret_cast<CommandQueueWithThread*>(ref);
+        auto stateMachine =
+            handleFromLong<rive::StateMachineHandle>(stateMachineHandle);
         auto deltaSeconds = static_cast<float_t>(deltaTimeNs) / 1e9f; // NS to S
-        commandQueue->advanceStateMachine(
-            handleFromLong<rive::StateMachineHandle>(stateMachineHandle),
-            deltaSeconds);
+
+        const bool enableTracing = commandQueue->tracingEnabled();
+
+        // When tracing, we want to measure the execution on the command server
+        // thread, but we can't extend that command. So we instead use runOnce
+        // to replicate the implementation.
+        if (enableTracing)
+        {
+            const Tracer* tracerPtr = &defaultTracer();
+            commandQueue->runOnce(
+                [tracerPtr, commandQueue, stateMachine, deltaSeconds](
+                    rive::CommandServer* server) {
+                    executeTracedAdvanceWork(tracerPtr,
+                                             commandQueue,
+                                             server,
+                                             stateMachine,
+                                             deltaSeconds);
+                });
+        }
+        else
+        {
+            commandQueue->advanceStateMachine(stateMachine, deltaSeconds);
+        }
     }
 
     JNIEXPORT jlong JNICALL
@@ -1665,6 +1892,29 @@ extern "C"
     }
 
     JNIEXPORT void JNICALL
+    Java_app_rive_core_CommandQueueJNIBridge_cppSetViewModelInstanceProperty(
+        JNIEnv* env,
+        jobject,
+        jlong ref,
+        jlong jViewModelInstanceHandle,
+        jstring jPropertyPath,
+        jlong jValueHandle)
+    {
+        auto commandQueue = reinterpret_cast<rive::CommandQueue*>(ref);
+        auto viewModelInstanceHandle =
+            handleFromLong<rive::ViewModelInstanceHandle>(
+                jViewModelInstanceHandle);
+        auto propertyPath = JStringToString(env, jPropertyPath);
+        auto valueHandle =
+            handleFromLong<rive::ViewModelInstanceHandle>(jValueHandle);
+
+        commandQueue->setViewModelInstanceNestedViewModel(
+            viewModelInstanceHandle,
+            propertyPath,
+            valueHandle);
+    }
+
+    JNIEXPORT void JNICALL
     Java_app_rive_core_CommandQueueJNIBridge_cppGetListSize(
         JNIEnv* env,
         jobject,
@@ -2120,45 +2370,6 @@ extern "C"
     }
 
     JNIEXPORT jlong JNICALL
-    Java_app_rive_core_CommandQueueJNIBridge_cppCreateRiveRenderTarget(
-        JNIEnv*,
-        jobject,
-        jlong ref,
-        jint width,
-        jint height)
-    {
-        auto* commandQueue = reinterpret_cast<rive::CommandQueue*>(ref);
-
-        // Use a promise/future to make this synchronous
-        auto promise = std::make_shared<std::promise<jlong>>();
-        std::future<jlong> future = promise->get_future();
-
-        // Use runOnce to execute on the command server thread where GL context
-        // is active
-        commandQueue->runOnce([width, height, promise](
-                                  rive::CommandServer* server) {
-            // Query sample count from the current GL context
-            GLint actualSampleCount = 1;
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glGetIntegerv(GL_SAMPLES, &actualSampleCount);
-            RiveLogD(TAG_CQ,
-                     "Creating render target on command server "
-                     "(sample count: %d)",
-                     actualSampleCount);
-
-            auto renderTarget =
-                new rive::gpu::FramebufferRenderTargetGL(width,
-                                                         height,
-                                                         0, // Framebuffer ID
-                                                         actualSampleCount);
-            promise->set_value(reinterpret_cast<jlong>(renderTarget));
-        });
-
-        // Wait for the result. Blocks the main thread until complete.
-        return future.get();
-    }
-
-    JNIEXPORT jlong JNICALL
     Java_app_rive_core_CommandQueueJNIBridge_cppCreateDrawKey(JNIEnv*,
                                                               jobject,
                                                               jlong ref)
@@ -2189,235 +2400,71 @@ extern "C"
         auto* renderContext =
             reinterpret_cast<RenderContext*>(renderContextRef);
         auto* nativeSurface = reinterpret_cast<void*>(surfaceRef);
-        auto* renderTarget =
-            reinterpret_cast<rive::gpu::RenderTargetGL*>(renderTargetRef);
+        auto artboardHandle =
+            handleFromLong<rive::ArtboardHandle>(artboardHandleRef);
+        auto stateMachineHandle =
+            handleFromLong<rive::StateMachineHandle>(stateMachineHandleRef);
+        auto renderTarget =
+            reinterpret_cast<LazyFramebufferRenderTargetGL*>(renderTargetRef);
         auto fit = GetFit(static_cast<uint8_t>(jFit));
         auto alignment = GetAlignment(static_cast<uint8_t>(jAlignment));
         auto scaleFactor = static_cast<float_t>(jScaleFactor);
         auto clearColor = static_cast<uint32_t>(jClearColor);
+        const bool enableTracing = commandQueue->tracingEnabled();
 
-        auto drawWork = [commandQueue,
-                         renderContext,
-                         nativeSurface,
-                         artboardHandleRef,
-                         stateMachineHandleRef,
-                         renderTarget,
-                         width,
-                         height,
-                         fit,
-                         alignment,
-                         clearColor,
-                         scaleFactor](rive::DrawKey drawKey,
-                                      rive::CommandServer* server) {
-            auto artboard = server->getArtboardInstance(
-                handleFromLong<rive::ArtboardHandle>(artboardHandleRef));
-            if (artboard == nullptr)
-            {
-                if (commandQueue->shouldLogArtboardNull(drawKey))
-                {
-                    RiveLogE(
-                        TAG_CQ,
-                        "Draw failed: Artboard instance is null (only reported once)");
-                }
-                return;
-            }
-
-            auto stateMachine = server->getStateMachineInstance(
-                handleFromLong<rive::StateMachineHandle>(
-                    stateMachineHandleRef));
-            if (stateMachine == nullptr)
-            {
-                if (commandQueue->shouldLogStateMachineNull(drawKey))
-                {
-                    RiveLogE(
-                        TAG_CQ,
-                        "Draw failed: State machine instance is null (only reported once)");
-                }
-                return;
-            }
-
-            // Render backend specific - make the context current
-            renderContext->beginFrame(nativeSurface);
-
-            // Retrieve the Rive RenderContext from the CommandServer
-            auto factory =
-                reinterpret_cast<CommandServerFactory*>(server->factory());
-            auto riveContext = factory->getRenderContext()->riveContext.get();
-
-            riveContext->beginFrame(rive::gpu::RenderContext::FrameDescriptor{
-                .renderTargetWidth = static_cast<uint32_t>(width),
-                .renderTargetHeight = static_cast<uint32_t>(height),
-                .loadAction = rive::gpu::LoadAction::clear,
-                .clearColor = clearColor,
-            });
-
-            // Stack allocate a Rive Renderer
-            auto renderer = rive::RiveRenderer(riveContext);
-
-            // Draw the .riv
-            renderer.align(fit,
-                           alignment,
-                           rive::AABB(0.0f,
-                                      0.0f,
-                                      static_cast<float_t>(width),
-                                      static_cast<float_t>(height)),
-                           artboard->bounds(),
-                           scaleFactor);
-            artboard->draw(&renderer);
-
-            // Flush the draw commands
-            riveContext->flush({
-                .renderTarget = renderTarget,
-            });
-
-            // Render context specific - swap buffers
-            renderContext->present(nativeSurface);
+        auto submitDrawWork = [&](const auto* tracerPtr) {
+            auto drawWork = [commandQueue,
+                             renderContext,
+                             nativeSurface,
+                             artboardHandle,
+                             stateMachineHandle,
+                             renderTarget,
+                             width,
+                             height,
+                             fit,
+                             alignment,
+                             clearColor,
+                             scaleFactor,
+                             tracerPtr](rive::DrawKey drawKey,
+                                        rive::CommandServer* server) {
+                executeDrawWork(tracerPtr,
+                                commandQueue,
+                                renderContext,
+                                nativeSurface,
+                                artboardHandle,
+                                stateMachineHandle,
+                                renderTarget,
+                                width,
+                                height,
+                                fit,
+                                alignment,
+                                clearColor,
+                                scaleFactor,
+                                drawKey,
+                                server);
+            };
+            commandQueue->draw(handleFromLong<rive::DrawKey>(drawKey),
+                               drawWork);
         };
-        commandQueue->draw(handleFromLong<rive::DrawKey>(drawKey), drawWork);
+
+        if (enableTracing)
+        {
+            submitDrawWork(&defaultTracer());
+        }
+        else
+        {
+            submitDrawWork(&noopTracer());
+        }
     }
 
     JNIEXPORT void JNICALL
-    Java_app_rive_core_CommandQueueJNIBridge_cppDrawBatch(
-        JNIEnv* env,
-        jobject,
-        jlong ref,
-        jlong renderContextRef,
-        jlong surfaceRef,
-        jlong drawKey,
-        jlong renderTargetRef,
-        jint surfaceWidth,
-        jint surfaceHeight,
-        jlongArray jArtboardHandles,
-        jlongArray jStateMachineHandles,
-        jintArray jViewportXs,
-        jintArray jViewportYs,
-        jintArray jViewportWidths,
-        jintArray jViewportHeights,
-        jbyteArray jFits,
-        jbyteArray jAlignments,
-        jfloatArray jScaleFactors,
-        jintArray jClearColors,
-        jint jSurfaceClearColor)
+    Java_app_rive_core_CommandQueueJNIBridge_cppCancelDraw(JNIEnv*,
+                                                           jobject,
+                                                           jlong ref,
+                                                           jlong drawKey)
     {
-        auto* commandQueue = reinterpret_cast<CommandQueueWithThread*>(ref);
-        auto* renderContext =
-            reinterpret_cast<RenderContext*>(renderContextRef);
-        auto* nativeSurface = reinterpret_cast<void*>(surfaceRef);
-        auto* renderTarget =
-            reinterpret_cast<rive::gpu::RenderTargetGL*>(renderTargetRef);
-        auto surfaceClearColor = static_cast<uint32_t>(jSurfaceClearColor);
-
-        jint count = env->GetArrayLength(jArtboardHandles);
-        if (count == 0)
-        {
-            return;
-        }
-
-        // Copy all array data from JNI before entering the draw lambda.
-        std::vector<jlong> artboardHandles(count);
-        std::vector<jlong> smHandles(count);
-        std::vector<jint> viewportXs(count);
-        std::vector<jint> viewportYs(count);
-        std::vector<jint> viewportWidths(count);
-        std::vector<jint> viewportHeights(count);
-        std::vector<jbyte> fits(count);
-        std::vector<jbyte> alignments(count);
-        std::vector<jfloat> scaleFactors(count);
-        std::vector<jint> clearColors(count);
-
-        env->GetLongArrayRegion(jArtboardHandles, 0, count,
-                                artboardHandles.data());
-        env->GetLongArrayRegion(jStateMachineHandles, 0, count,
-                                smHandles.data());
-        env->GetIntArrayRegion(jViewportXs, 0, count, viewportXs.data());
-        env->GetIntArrayRegion(jViewportYs, 0, count, viewportYs.data());
-        env->GetIntArrayRegion(jViewportWidths, 0, count,
-                               viewportWidths.data());
-        env->GetIntArrayRegion(jViewportHeights, 0, count,
-                               viewportHeights.data());
-        env->GetByteArrayRegion(jFits, 0, count, fits.data());
-        env->GetByteArrayRegion(jAlignments, 0, count, alignments.data());
-        env->GetFloatArrayRegion(jScaleFactors, 0, count,
-                                 scaleFactors.data());
-        env->GetIntArrayRegion(jClearColors, 0, count, clearColors.data());
-
-        auto drawWork = [commandQueue,
-                         renderContext,
-                         nativeSurface,
-                         renderTarget,
-                         surfaceWidth,
-                         surfaceHeight,
-                         surfaceClearColor,
-                         count,
-                         artboardHandles = std::move(artboardHandles),
-                         smHandles = std::move(smHandles),
-                         viewportXs = std::move(viewportXs),
-                         viewportYs = std::move(viewportYs),
-                         viewportWidths = std::move(viewportWidths),
-                         viewportHeights = std::move(viewportHeights),
-                         fits = std::move(fits),
-                         alignments = std::move(alignments),
-                         scaleFactors = std::move(scaleFactors),
-                         clearColors = std::move(clearColors)](
-                            rive::DrawKey drawKey,
-                            rive::CommandServer* server) {
-            // Make the EGL context current.
-            renderContext->beginFrame(nativeSurface);
-
-            auto factory =
-                reinterpret_cast<CommandServerFactory*>(server->factory());
-            auto riveContext = factory->getRenderContext()->riveContext.get();
-
-            // Begin a single frame for the entire batch.
-            riveContext->beginFrame(rive::gpu::RenderContext::FrameDescriptor{
-                .renderTargetWidth = static_cast<uint32_t>(surfaceWidth),
-                .renderTargetHeight = static_cast<uint32_t>(surfaceHeight),
-                .loadAction = rive::gpu::LoadAction::clear,
-                .clearColor = surfaceClearColor,
-            });
-
-            auto renderer = rive::RiveRenderer(riveContext);
-
-            // Draw each item at its viewport position.
-            for (jint i = 0; i < count; ++i)
-            {
-                auto artboard = server->getArtboardInstance(
-                    handleFromLong<rive::ArtboardHandle>(artboardHandles[i]));
-                if (artboard == nullptr)
-                {
-                    continue;
-                }
-
-                auto fit = GetFit(static_cast<uint8_t>(fits[i]));
-                auto alignment =
-                    GetAlignment(static_cast<uint8_t>(alignments[i]));
-                auto scaleFactor = static_cast<float_t>(scaleFactors[i]);
-
-                float x = static_cast<float_t>(viewportXs[i]);
-                float y = static_cast<float_t>(viewportYs[i]);
-                float w = static_cast<float_t>(viewportWidths[i]);
-                float h = static_cast<float_t>(viewportHeights[i]);
-
-                // Save/restore to isolate each item's transform.
-                renderer.save();
-                renderer.align(fit,
-                               alignment,
-                               rive::AABB(x, y, x + w, y + h),
-                               artboard->bounds(),
-                               scaleFactor);
-                artboard->draw(&renderer);
-                renderer.restore();
-            }
-
-            // Single flush for the entire batch.
-            riveContext->flush({
-                .renderTarget = renderTarget,
-            });
-
-            // Swap buffers once.
-            renderContext->present(nativeSurface);
-        };
-        commandQueue->draw(handleFromLong<rive::DrawKey>(drawKey), drawWork);
+        auto commandQueue = reinterpret_cast<rive::CommandQueue*>(ref);
+        commandQueue->cancelDraw(handleFromLong<rive::DrawKey>(drawKey));
     }
 
     JNIEXPORT void JNICALL
@@ -2443,8 +2490,8 @@ extern "C"
         auto* renderContext =
             reinterpret_cast<RenderContext*>(renderContextRef);
         auto* nativeSurface = reinterpret_cast<void*>(surfaceRef);
-        auto* renderTarget =
-            reinterpret_cast<rive::gpu::RenderTargetGL*>(renderTargetRef);
+        auto renderTarget =
+            reinterpret_cast<LazyFramebufferRenderTargetGL*>(renderTargetRef);
         auto fit = GetFit(static_cast<uint8_t>(jFit));
         auto alignment = GetAlignment(static_cast<uint8_t>(jAlignment));
         auto scaleFactor = static_cast<float_t>(jScaleFactor);
@@ -2520,6 +2567,7 @@ extern "C"
             }
 
             renderContext->beginFrame(nativeSurface);
+            auto concreteRenderTarget = renderTarget->getOrCreate();
 
             // Retrieve the Rive RenderContext from the CommandServer
             auto factory =
@@ -2546,7 +2594,7 @@ extern "C"
             artboard->draw(&renderer);
 
             riveContext->flush({
-                .renderTarget = renderTarget,
+                .renderTarget = concreteRenderTarget,
             });
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2598,6 +2646,154 @@ extern "C"
                     "Failed to draw into buffer: State machine instance is null");
                 break;
         }
+    }
+
+    JNIEXPORT void JNICALL
+    Java_app_rive_core_CommandQueueJNIBridge_cppDrawBatch(
+        JNIEnv* env,
+        jobject,
+        jlong ref,
+        jlong renderContextRef,
+        jlong surfaceRef,
+        jlong drawKey,
+        jlong renderTargetRef,
+        jint surfaceWidth,
+        jint surfaceHeight,
+        jint jCount,
+        jlongArray jArtboardHandles,
+        jlongArray jStateMachineHandles,
+        jintArray jViewportXs,
+        jintArray jViewportYs,
+        jintArray jViewportWidths,
+        jintArray jViewportHeights,
+        jbyteArray jFits,
+        jbyteArray jAlignments,
+        jfloatArray jScaleFactors,
+        jintArray jClearColors,
+        jint jSurfaceClearColor)
+    {
+        auto* commandQueue = reinterpret_cast<CommandQueueWithThread*>(ref);
+        auto* renderContext =
+            reinterpret_cast<RenderContext*>(renderContextRef);
+        auto* nativeSurface = reinterpret_cast<void*>(surfaceRef);
+        auto* renderTarget =
+            reinterpret_cast<LazyFramebufferRenderTargetGL*>(renderTargetRef);
+        auto surfaceClearColor = static_cast<uint32_t>(jSurfaceClearColor);
+
+        jint count = jCount;
+        if (count == 0)
+        {
+            return;
+        }
+
+        // Copy all array data from JNI before entering the draw lambda.
+        std::vector<jlong> artboardHandles(count);
+        std::vector<jlong> smHandles(count);
+        std::vector<jint> viewportXs(count);
+        std::vector<jint> viewportYs(count);
+        std::vector<jint> viewportWidths(count);
+        std::vector<jint> viewportHeights(count);
+        std::vector<jbyte> fits(count);
+        std::vector<jbyte> alignments(count);
+        std::vector<jfloat> scaleFactors(count);
+        std::vector<jint> clearColors(count);
+
+        env->GetLongArrayRegion(jArtboardHandles, 0, count,
+                                artboardHandles.data());
+        env->GetLongArrayRegion(jStateMachineHandles, 0, count,
+                                smHandles.data());
+        env->GetIntArrayRegion(jViewportXs, 0, count, viewportXs.data());
+        env->GetIntArrayRegion(jViewportYs, 0, count, viewportYs.data());
+        env->GetIntArrayRegion(jViewportWidths, 0, count,
+                               viewportWidths.data());
+        env->GetIntArrayRegion(jViewportHeights, 0, count,
+                               viewportHeights.data());
+        env->GetByteArrayRegion(jFits, 0, count, fits.data());
+        env->GetByteArrayRegion(jAlignments, 0, count, alignments.data());
+        env->GetFloatArrayRegion(jScaleFactors, 0, count,
+                                 scaleFactors.data());
+        env->GetIntArrayRegion(jClearColors, 0, count, clearColors.data());
+
+        auto drawWork = [commandQueue,
+                         renderContext,
+                         nativeSurface,
+                         renderTarget,
+                         surfaceWidth,
+                         surfaceHeight,
+                         surfaceClearColor,
+                         count,
+                         artboardHandles = std::move(artboardHandles),
+                         smHandles = std::move(smHandles),
+                         viewportXs = std::move(viewportXs),
+                         viewportYs = std::move(viewportYs),
+                         viewportWidths = std::move(viewportWidths),
+                         viewportHeights = std::move(viewportHeights),
+                         fits = std::move(fits),
+                         alignments = std::move(alignments),
+                         scaleFactors = std::move(scaleFactors),
+                         clearColors = std::move(clearColors)](
+                            rive::DrawKey drawKey,
+                            rive::CommandServer* server) {
+            // Make the EGL context current.
+            renderContext->beginFrame(nativeSurface);
+
+            auto factory =
+                reinterpret_cast<CommandServerFactory*>(server->factory());
+            auto riveContext = factory->getRenderContext()->riveContext.get();
+
+            // Resolve the lazy render target to a concrete GL render target.
+            auto* concreteRenderTarget = renderTarget->getOrCreate();
+
+            // Begin a single frame for the entire batch.
+            riveContext->beginFrame(rive::gpu::RenderContext::FrameDescriptor{
+                .renderTargetWidth = static_cast<uint32_t>(surfaceWidth),
+                .renderTargetHeight = static_cast<uint32_t>(surfaceHeight),
+                .loadAction = rive::gpu::LoadAction::clear,
+                .clearColor = surfaceClearColor,
+            });
+
+            auto renderer = rive::RiveRenderer(riveContext);
+
+            // Draw each item at its viewport position.
+            for (jint i = 0; i < count; ++i)
+            {
+                auto artboard = server->getArtboardInstance(
+                    handleFromLong<rive::ArtboardHandle>(artboardHandles[i]));
+                if (artboard == nullptr)
+                {
+                    continue;
+                }
+
+                auto fit = GetFit(static_cast<uint8_t>(fits[i]));
+                auto alignment =
+                    GetAlignment(static_cast<uint8_t>(alignments[i]));
+                auto scaleFactor = static_cast<float_t>(scaleFactors[i]);
+
+                float x = static_cast<float_t>(viewportXs[i]);
+                float y = static_cast<float_t>(viewportYs[i]);
+                float w = static_cast<float_t>(viewportWidths[i]);
+                float h = static_cast<float_t>(viewportHeights[i]);
+
+                // Save/restore to isolate each item's transform.
+                renderer.save();
+                renderer.align(fit,
+                               alignment,
+                               rive::AABB(x, y, x + w, y + h),
+                               artboard->bounds(),
+                               scaleFactor);
+                artboard->draw(&renderer);
+                renderer.restore();
+            }
+
+            // Single flush for the entire batch.
+            riveContext->flush({
+                .renderTarget = concreteRenderTarget,
+            });
+
+            // Swap buffers once.
+            renderContext->present(nativeSurface);
+        };
+        commandQueue->draw(handleFromLong<rive::DrawKey>(drawKey), drawWork);
     }
 
     JNIEXPORT void JNICALL
