@@ -11,7 +11,7 @@ Last updated: 2026-06-08
 **No fork.** Uses the official `rive-app/rive-ios` package via Swift Package Manager.
 
 - **Package URL**: `https://github.com/rive-app/rive-ios.git`
-- **Pinned version**: `6.15.2`
+- **Pinned version**: `6.20.5`
 - **Integration**: SPM dependency in `iosApp/iosApp.xcodeproj`
 
 All iOS Rive interaction goes through standard public APIs (`RiveFile`, `RiveModel`, `RiveViewModel`, `enableAutoBind`, VMI properties). No custom rendering or batch changes needed.
