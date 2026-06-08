@@ -7,26 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7B6589202F58AB52006DC0EC /* RiveRuntime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B65891F2F58AB52006DC0EC /* RiveRuntime.xcframework */; };
-		7B6589212F58AB52006DC0EC /* RiveRuntime.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7B65891F2F58AB52006DC0EC /* RiveRuntime.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		AA000001AAAA000000000001 /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = AA000001AAAA000000000002 /* RiveRuntime */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		7B6589222F58AB52006DC0EC /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				7B6589212F58AB52006DC0EC /* RiveRuntime.xcframework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
-		7B65891F2F58AB52006DC0EC /* RiveRuntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = RiveRuntime.xcframework; path = ../SDK/swift/RiveRuntime.xcframework; sourceTree = "<group>"; };
 		EFCFE6D120C8694365ADF978 /* RiveCmpTesting.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RiveCmpTesting.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -66,7 +50,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7B6589202F58AB52006DC0EC /* RiveRuntime.xcframework in Frameworks */,
+				AA000001AAAA000000000001 /* RiveRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,18 +70,9 @@
 			children = (
 				76062D84EE340DC47AC7CA89 /* Configuration */,
 				0266C2E46FA1B6038FCD3615 /* iosApp */,
-				7B65891E2F58AB52006DC0EC /* Frameworks */,
 				1146E33B922EE124ECD831C9 /* Products */,
 				7B4D20682F85016800BFBB65 /* New Folder */,
 			);
-			sourceTree = "<group>";
-		};
-		7B65891E2F58AB52006DC0EC /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				7B65891F2F58AB52006DC0EC /* RiveRuntime.xcframework */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -111,7 +86,6 @@
 				092132F8C3E9B93172A84AF6 /* Sources */,
 				2401291918449C48BFEA4C15 /* Frameworks */,
 				93B092E68AB8A58390148968 /* Resources */,
-				7B6589222F58AB52006DC0EC /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -123,6 +97,7 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				AA000001AAAA000000000002 /* RiveRuntime */,
 			);
 			productName = iosApp;
 			productReference = EFCFE6D120C8694365ADF978 /* RiveCmpTesting.app */;
@@ -152,6 +127,9 @@
 			);
 			mainGroup = 75425456514B974CBFC4B644;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA000001AAAA000000000003 /* XCRemoteSwiftPackageReference "rive-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1146E33B922EE124ECD831C9 /* Products */;
 			projectDirPath = "";
@@ -406,6 +384,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA000001AAAA000000000003 /* XCRemoteSwiftPackageReference "rive-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rive-app/rive-ios.git";
+			requirement = {
+				kind = exactVersion;
+				version = 6.15.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA000001AAAA000000000002 /* RiveRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000001AAAA000000000003 /* XCRemoteSwiftPackageReference "rive-ios" */;
+			productName = RiveRuntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 39386E797CBE554C7E9E6299 /* Project object */;
 }

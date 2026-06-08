@@ -1,71 +1,24 @@
 # Rive Fork Tracking
 
-Tracks which upstream Rive versions we forked, what we changed on top, and which fixes we cherry-picked.
+Tracks which upstream Rive versions we use and what we changed on top.
 
-Last updated: 2026-04-07
+Last updated: 2026-06-08
 
 ---
 
-## iOS — RiveRuntime.xcframework
+## iOS — RiveRuntime (upstream via SPM)
 
-### Source repo
-- **Local fork**: `/Users/peeyush.gulati/Desktop/Projects/Rive/rive-ios`
-- **Upstream**: `https://github.com/rive-app/rive-ios.git`
-- **Fork branch**: `main` (tracking upstream)
+**No fork.** Uses the official `rive-app/rive-ios` package via Swift Package Manager.
 
-### Base version
-- **Upstream commit**: `5143127` — `fix(apple): implement various missing command queue functionality (#11802)`
-- **Tag**: VERSION file says `6.15.2` (but VERSION file is stale; commit is post-6.15.2 main)
-- **Pulled**: 2026-03-04
+- **Package URL**: `https://github.com/rive-app/rive-ios.git`
+- **Pinned version**: `6.15.2`
+- **Integration**: SPM dependency in `iosApp/iosApp.xcodeproj`
 
-### Pinned submodule
-- **Repo**: `submodules/rive-runtime` → `https://github.com/rive-app/rive-runtime.git`
-- **Base commit**: `f4e896a4` — `fix: reinit scripted objects owned by the state machine (#11783)`
+All iOS Rive interaction goes through standard public APIs (`RiveFile`, `RiveModel`, `RiveViewModel`, `enableAutoBind`, VMI properties). No custom rendering or batch changes needed.
 
-### Changes on top of base (additive only)
-1. **`Source/Experimental/Renderer/Renderer.h`** — added `BatchRendererConfiguration` struct and `drawBatchConfigurations:...` method declaration
-2. **`Source/Experimental/Renderer/Renderer.mm`** — implemented `drawBatchConfigurations:...` for batched rendering of multiple artboards into one shared surface in a single beginFrame/flush pass
-3. **`Source/Experimental/Batch/RiveBatchCoordinator.swift`** — NEW (registry of items, fillBatchArrays)
-4. **`Source/Experimental/Batch/RiveBatchSurface.swift`** — NEW (single MTKView with render loop calling drawBatch)
-5. **`Source/Experimental/Batch/RiveBatchItem.swift`** — NEW (registers with coordinator on layout)
+### History
 
-These additions are mirrored in this repo at `SDK/swift/src/` for reference / so they aren't lost on a clean clone of the fork.
-
-### Cherry-picked fixes (on top of base)
-
-None currently applied.
-
-#### Reverted / verified inert
-
-| Date | Upstream commit | Title | Outcome |
-|---|---|---|---|
-| 2026-04-07 → reverted 2026-04-09 | `0d15033d` | fix(renderer) gamma correction fix (#11949) | Cherry-picked into `renderer/src/shaders/atomic_draw.glsl` while debugging the iOS "white box behind nav icons" bug. **Verified inert at the binary level**: a clean rebuild after reverting the patch produced byte-identical iOS / iOS-sim / Catalyst / tvOS / tvOS-sim / xrOS / xrOS-sim binaries (only macOS build metadata differed). The touched shader file lives in a code path that the Metal-based iOS builds don't compile, so the patch never reached any binary we ship. **Do not re-apply** without first verifying it actually changes the iOS binary. The real white-box fix turned out to be on the Compose side: pass `UIKitInteropProperties(placedAsOverlay = true)` to `UIKitView`. See `RiveExpects.native.kt`. |
-
-### How to rebuild the xcframework
-See `docs/aar-build-process.md` for the Android AAR. For iOS:
-
-```bash
-cd /Users/peeyush.gulati/Desktop/Projects/Rive/rive-ios
-# After applying any patch to submodules/rive-runtime:
-rm -rf submodules/rive-runtime/renderer/out/iphoneos_release \
-       submodules/rive-runtime/renderer/out/iphonesimulator_release \
-       out/iphoneos_release out/iphonesimulator_release
-bash scripts/build.rive.sh release ios
-bash scripts/build.rive.sh release ios_sim
-# Other platforms (only if needed by build_framework.sh):
-bash scripts/build.rive.sh release xros
-bash scripts/build.rive.sh release xrsimulator
-bash scripts/build.rive.sh release appletvos
-bash scripts/build.rive.sh release appletvsimulator
-bash scripts/build.rive.sh release maccatalyst
-bash scripts/build.rive.sh release macosx
-# Assemble the xcframework:
-bash scripts/build_framework.sh -c Release
-# Output: archive/RiveRuntime.xcframework
-```
-
-After build, copy to:
-- `/Users/peeyush.gulati/Desktop/Projects/Rive-IOS/SDK/swift/RiveRuntime.xcframework` (linked by iosApp.xcodeproj)
+Previously used a forked xcframework with batch rendering additions (`drawBatchConfigurations`, `RiveBatchSurface`, `RiveBatchItem`). These were never wired into the KMP layer — iOS always rendered one `UIKitView` per `RiveComponent`. The fork was removed in favor of upstream SPM to eliminate maintenance overhead.
 
 ---
 
@@ -86,7 +39,7 @@ After build, copy to:
 3. **MODIFIED** `kotlin/src/main/kotlin/app/rive/core/CommandQueueBridge.kt` — added `cppDrawBatch()` JNI external
 4. **MODIFIED** `kotlin/src/main/cpp/src/bindings/bindings_command_queue.cpp` — added `Java_app_rive_core_CommandQueueJNIBridge_cppDrawBatch` (1 beginFrame → N artboard draws → 1 flush → 1 present), surface clear logic for empty batches
 
-These are mirrored in this repo's SDK files via the `SDK/` overlay (see `~/.claude/.../memory/aar-build-process.md`).
+These are mirrored in this repo's SDK files via the `SDK/kotlin/` overlay.
 
 ### Cherry-picked fixes
 None yet.
