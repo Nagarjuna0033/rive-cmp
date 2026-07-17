@@ -1,0 +1,70 @@
+name: Firebase Distribution (iOS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      iosScheme:
+        description: iOS Scheme
+        required: true
+        default: Dev
+        type: choice
+        options:
+          - Dev
+          - QA
+          - Staging
+          - Production
+
+jobs:
+  ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          echo "FIREBASE_APP_ID=${{ secrets.FIREBASE_IOS_APP_ID }}" >> $GITHUB_ENV
+
+          case "${{ github.event.inputs.iosScheme }}" in
+
+            Dev)
+              echo "IOS_SCHEME=Dev" >> $GITHUB_ENV
+              echo "TESTER_GROUP=arjun" >> $GITHUB_ENV
+              ;;
+
+            QA)
+              echo "IOS_SCHEME=QA" >> $GITHUB_ENV
+              echo "TESTER_GROUP=testing" >> $GITHUB_ENV
+              ;;
+          
+            *)
+              echo "Unknown iOS Scheme"
+              exit 1
+              ;;
+          esac
+
+      # Need to replace with xcodebuild archive + exportArchive after signing is configured.
+      - name: Build
+        run: |
+          xcodebuild \
+            -scheme "$IOS_SCHEME"
+
+      - name: Find IPA
+        run: |
+          IPA=$(find . -name "*.ipa" | head -1)
+
+          if [ -z "$IPA" ]; then
+            echo "No IPA found."
+            echo "Configure archive/export before distributing to Firebase."
+            exit 1
+          fi
+
+          echo "IPA_PATH=$IPA" >> $GITHUB_ENV
+
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ env.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: ${{ env.TESTER_GROUP }}
+          file: ${{ env.IPA_PATH }}
