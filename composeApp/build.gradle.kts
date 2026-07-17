@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlin.serialization)
+    id("com.google.gms.google-services")
 }
 
 kotlin {
@@ -46,6 +47,7 @@ kotlin {
             implementation("com.github.LottieFiles:dotlottie-android:0.5.0")
 
 
+
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -70,6 +72,8 @@ kotlin {
             implementation(libs.compottie.network)
             implementation(libs.compottie)
             implementation("org.jetbrains.androidx.navigation:navigation-compose:2.9.2")
+
+            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:34.16.0"))
 
         }
         commonTest.dependencies {
