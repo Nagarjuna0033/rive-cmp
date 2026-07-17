@@ -35,17 +35,12 @@ jobs:
 
           Debug)
           echo "GRADLE_TASK=composeApp:assembleDebug" >> $GITHUB_ENV
-          echo "TESTER_GROUP=developers" >> $GITHUB_ENV
+          echo "TESTER_GROUP=arjun" >> $GITHUB_ENV
           ;;
         
           Release)
-          echo "GRADLE_TASK=composeApp:assembleRelease" >> $GITHUB_ENV
-          echo "TESTER_GROUP=beta" >> $GITHUB_ENV
-          ;;
-        
-          Benchmark)
-          echo "GRADLE_TASK=composeApp:assembleBenchmark" >> $GITHUB_ENV
-          echo "TESTER_GROUP=qa" >> $GITHUB_ENV
+          echo "GRADLE_TASK=composeApp:assembleDebug" >> $GITHUB_ENV
+          echo "TESTER_GROUP=testing" >> $GITHUB_ENV
           ;;
           
           esac
