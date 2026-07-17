@@ -1,9 +1,9 @@
-name: Firebase Distribution
-
 on:
   workflow_dispatch:
     inputs:
       androidVariant:
+        description: "Select the Android build variant to distribute"
+        required: true
         type: choice
         options:
           - Debug
@@ -27,26 +27,47 @@ jobs:
       - name: Grant Execute Permission
         run: chmod +x gradlew
 
-      - name: Configure
+      - name: Configure Build
         run: |
           echo "FIREBASE_APP_ID=${{ secrets.FIREBASE_ANDROID_APP_ID }}" >> $GITHUB_ENV
 
           case "${{ github.event.inputs.androidVariant }}" in
 
-          Debug)
-          echo "GRADLE_TASK=composeApp:assembleDebug" >> $GITHUB_ENV
-          echo "TESTER_GROUP=arjun" >> $GITHUB_ENV
-          ;;
-        
-          Release)
-          echo "GRADLE_TASK=composeApp:assembleDebug" >> $GITHUB_ENV
-          echo "TESTER_GROUP=testing" >> $GITHUB_ENV
-          ;;
-          
+            Debug)
+              echo "GRADLE_TASK=composeApp:assembleDebug" >> $GITHUB_ENV
+              echo "TESTER_GROUP=arjun" >> $GITHUB_ENV
+              ;;
+
+            Release)
+              echo "GRADLE_TASK=composeApp:assembleRelease" >> $GITHUB_ENV
+              echo "TESTER_GROUP=arjun" >> $GITHUB_ENV
+              ;;
+
+            Benchmark)
+              echo "GRADLE_TASK=composeApp:assembleBenchmark" >> $GITHUB_ENV
+              echo "TESTER_GROUP=testing" >> $GITHUB_ENV
+              ;;
+
+            *)
+              echo "Unknown variant"
+              exit 1
+              ;;
           esac
+
+      - name: Create google-services.json
+        run: |
+          cat <<'EOF' > composeApp/google-services.json
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
 
       - name: Build APK
         run: ./gradlew $GRADLE_TASK
+
+      - name: Create google-services.json
+        run: |
+          cat <<'EOF' > composeApp/google-services.json
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
 
       - name: Find APK
         id: apk
