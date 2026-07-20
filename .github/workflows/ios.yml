@@ -1,0 +1,27 @@
+############################################################################
+## IOS
+############################################################################
+
+deploy_ios_dev:
+
+  extends:
+    - .ios_build
+    - .master_branch_manual
+
+  variables:
+    BUILD_VARIANT: dev
+    FASTLANE_LANE: ios_dev
+
+  when: manual
+
+deploy_ios_release:
+
+  extends:
+    - .ios_build
+    - .master_branch_manual
+
+  variables:
+    BUILD_VARIANT: release
+    FASTLANE_LANE: ios_release
+
+  when: manual

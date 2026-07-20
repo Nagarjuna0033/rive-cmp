@@ -7,6 +7,7 @@ variables:
 
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
   BUNDLE_PATH: "vendor/bundle"
+  GIT_SUBMODULE_STRATEGY: recursive
 
 cache:
   key: "$CI_COMMIT_REF_SLUG"
