@@ -1,0 +1,128 @@
+###########################################################################
+# ANDROID DEPLOY TEMPLATE
+###########################################################################
+
+.android_deploy:
+
+  extends:
+    - .android_setup
+
+  stage: deploy
+
+
+  tags:
+    - macos
+
+  script:
+    - echo "Deploying Android $BUILD_VARIANT"
+    - bundle exec fastlane "$FASTLANE_LANE"
+
+###########################################################################
+# IOS DEPLOY TEMPLATE
+###########################################################################
+
+.ios_deploy:
+
+  extends:
+    - .ios_setup
+
+  stage: deploy
+
+  tags:
+    - macos
+
+  script:
+    - echo "Deploying iOS $BUILD_VARIANT"
+    - bundle exec fastlane "$FASTLANE_LANE"
+
+###########################################################################
+# ANDROID
+###########################################################################
+
+deploy_android_dev_debug:
+
+  extends:
+    - .android_deploy
+
+  needs:
+    - job: build_android_dev_debug
+      artifacts: true
+
+  variables:
+    BUILD_VARIANT: devDebug
+    FASTLANE_LANE: android_dev_debug
+
+  when: manual
+
+deploy_android_dev_release:
+
+  extends:
+    - .android_deploy
+
+  needs:
+    - job: build_android_dev_release
+      artifacts: true
+
+  variables:
+    BUILD_VARIANT: devRelease
+    FASTLANE_LANE: android_dev_release
+
+  when: manual
+
+deploy_android_prod_debug:
+
+  extends:
+    - .android_deploy
+
+  needs:
+    - job: build_android_prod_debug
+      artifacts: true
+
+  variables:
+    BUILD_VARIANT: prodDebug
+    FASTLANE_LANE: android_prod_debug
+
+  when: manual
+
+deploy_android_prod_release:
+
+  extends:
+    - .android_deploy
+
+  needs:
+    - job: build_android_prod_release
+      artifacts: true
+
+  variables:
+    BUILD_VARIANT: prodRelease
+    FASTLANE_LANE: android_prod_release
+
+  when: manual
+
+###########################################################################
+# IOS
+###########################################################################
+
+deploy_ios_dev:
+
+  extends:
+    - .ios_deploy
+    - .master_branch_manual
+
+  variables:
+    BUILD_VARIANT: dev
+    FASTLANE_LANE: ios_dev
+
+  when: manual
+
+deploy_ios_release:
+
+  extends:
+    - .ios_deploy
+    - .master_branch_manual
+
+  variables:
+    BUILD_VARIANT: release
+    FASTLANE_LANE: ios_release
+
+  when: manual

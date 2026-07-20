@@ -1,0 +1,109 @@
+default_platform(:android)
+
+###############################################################
+# ANDROID
+###############################################################
+
+platform :android do
+
+  desc "Deploy Dev Debug"
+
+  lane :android_dev_debug do
+
+    firebase_app_distribution(
+      app: ENV["FIREBASE_ANDROID_APP_ID"],
+      android_artifact_path: ENV["ARTIFACT_PATH"],
+      groups: "Dev-Qa"
+    )
+
+  end
+
+  desc "Deploy Dev Release"
+
+  lane :android_dev_release do
+
+    firebase_app_distribution(
+      app: ENV["FIREBASE_ANDROID_APP_ID"],
+      android_artifact_path: ENV["ARTIFACT_PATH"],
+      groups: "Dev-Qa"
+    )
+
+  end
+
+  desc "Deploy Prod Debug"
+
+  lane :android_prod_debug do
+
+    firebase_app_distribution(
+      app: ENV["FIREBASE_ANDROID_APP_ID"],
+      android_artifact_path: ENV["ARTIFACT_PATH"],
+      groups: "Dev-Qa"
+    )
+
+  end
+
+  desc "Deploy Prod Release"
+
+
+  lane :android_prod_release do
+
+  firebase_app_distribution(
+    app: ENV["FIREBASE_ANDROID_APP_ID"],
+    android_artifact_path: ENV["ARTIFACT_PATH"],
+    groups: "qa"
+  )
+
+  upload_to_play_store(
+    aab: ENV["ARTIFACT_PATH"],
+    track: "internal",
+    json_key_data: ENV["PLAY_STORE_JSON_KEY"]
+  )
+
+  end
+
+end
+
+###############################################################
+# IOS
+###############################################################
+
+platform :ios do
+
+  api_key = app_store_connect_api_key(
+    key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+    issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+    key_filepath: "./AuthKey.p8"
+  )
+
+  desc "Development"
+  lane :ios_dev do
+
+    build_ios_app(
+      workspace: "ios.xcworkspace",
+      scheme: "dev",
+      export_method: "development"
+    )
+
+    firebase_app_distribution(
+      app: ENV["FIREBASE_IOS_APP_ID"],
+      groups: "Dev-Qa"
+    )
+
+  end
+
+  desc "Release"
+  lane :ios_release do
+
+    build_ios_app(
+      workspace: "ios.xcworkspace",
+      scheme: "release",
+      export_method: "app-store"
+    )
+
+    upload_to_testflight(
+      api_key: api_key
+    )
+
+  end
+
+end

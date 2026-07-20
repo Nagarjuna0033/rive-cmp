@@ -1,0 +1,184 @@
+###########################################################################
+# COMMON SETUP
+###########################################################################
+
+.common_setup:
+
+  before_script:
+
+    - chmod +x gradlew
+
+    # Install Ruby dependencies
+    - bundle config set path "$BUNDLE_PATH"
+    - bundle install
+
+###########################################################################
+# ANDROID SETUP
+###########################################################################
+
+.android_setup:
+
+  extends:
+    - .common_setup
+
+  before_script:
+
+    - !reference [.common_setup, before_script]
+
+    - export ANDROID_HOME=$HOME/Library/Android/sdk
+    - export ANDROID_SDK_ROOT=$ANDROID_HOME
+
+    - export PATH=$PATH:$ANDROID_HOME/platform-tools
+    - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+
+    # google-services.json
+
+    - |
+      echo "$GCP_SERVICE_JSON_ANDROID" | base64 --decode > android/google-services.json
+
+    # Release Keystore
+
+    - |
+      echo "$KEYSTORE_BASE64" | base64 --decode > android/release.keystore
+
+###########################################################################
+# IOS SETUP
+###########################################################################
+
+.ios_setup:
+
+  extends:
+    - .common_setup
+
+  before_script:
+
+    - !reference [.common_setup, before_script]
+
+    - xcodebuild -version
+
+    # Firebase plist
+
+    - |
+      echo "$GCP_SERVICE_JSON_IOS" | base64 --decode > ios/GoogleService-Info.plist
+      
+      # App Store Connect API Key
+    - |
+      echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > AuthKey.p8
+
+    # Certificate
+
+    - |
+      echo "$IOS_CERTIFICATE_BASE64" \
+      | base64 --decode \
+      > certificate.p12
+
+    # Provisioning Profile
+
+    - |
+      mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+      echo "$IOS_DEV_PROVISIONING_PROFILE_BASE64" \
+      | base64 --decode \
+      > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+    # Keychain
+
+    - |
+      security create-keychain \
+        -p "$KEYCHAIN_PASSWORD" \
+        build.keychain
+
+      security default-keychain \
+        -s build.keychain
+
+      security unlock-keychain \
+        -p "$KEYCHAIN_PASSWORD" \
+        build.keychain
+
+      security import certificate.p12 \
+        -k build.keychain \
+        -P "$IOS_CERTIFICATE_PASSWORD" \
+        -T /usr/bin/codesign
+
+      security set-key-partition-list \
+        -S apple-tool:,apple:,codesign: \
+        -s \
+        -k "$KEYCHAIN_PASSWORD" \
+        build.keychain
+
+
+###########################################################################
+# ANDROID BUILD TEMPLATE
+###########################################################################
+
+.android_build:
+
+  extends:
+    - .android_setup
+
+  stage: build
+
+  tags:
+    - macos
+
+  script:
+
+    - echo "Building $BUILD_VARIANT"
+
+    - chmod +x gradlew
+
+    - ./gradlew $GRADLE_TASK
+
+    - |
+      ARTIFACT=$(find "$ARTIFACT_DIRECTORY" \
+        \( -name "*.apk" -o -name "*.aab" \) \
+        | head -1)
+
+      if [ -z "$ARTIFACT" ]; then
+        echo "Artifact not found!"
+        exit 1
+      fi
+
+      echo "Artifact: $ARTIFACT"
+
+      echo "BUILD_VARIANT=$BUILD_VARIANT" >> build.env
+      echo "ARTIFACT_PATH=$ARTIFACT" >> build.env
+
+  artifacts:
+
+    expire_in: 7 days
+
+    paths:
+      - android/build/outputs/
+
+    reports:
+      dotenv: build.env
+
+###########################################################################
+# IOS BUILD TEMPLATE
+###########################################################################
+
+.ios_build:
+
+  extends:
+    - .ios_setup
+
+  stage: build
+
+  tags:
+    - macos
+
+  script:
+
+    - echo "Building iOS $BUILD_VARIANT"
+
+    - bundle exec fastlane "$FASTLANE_LANE"
+
+  artifacts:
+
+    expire_in: 7 days
+
+    paths:
+      - ios/build/
+
+
