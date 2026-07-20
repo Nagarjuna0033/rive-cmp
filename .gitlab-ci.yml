@@ -1,10 +1,9 @@
 stages:
-  - build
   - deploy
 
 include:
   - local: "variables.yml"
   - local: "templates.yml"
   - local: "android.yml"
-  - local: "deploy.yml"
+  - local: "ios.yml"
 

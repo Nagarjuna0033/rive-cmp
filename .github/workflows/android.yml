@@ -9,9 +9,10 @@ build_android_dev_debug:
     - .master_branch_manual
 
   variables:
-    BUILD_VARIANT: devDebug
+    BUILD_VARIANT: DevDebug
     GRADLE_TASK: ":android:assembleDevDebug"
-    ARTIFACT_DIRECTORY: android/build/outputs/apk/dev/debug
+    ARTIFACT_DIRECTORY: "android/build/outputs/apk/dev/debug"
+    FASTLANE_LANE: "android_dev_debug"
 
 ###########################################################################
 # DEV RELEASE
@@ -23,9 +24,10 @@ build_android_dev_release:
     - .master_branch_manual
 
   variables:
-    BUILD_VARIANT: devRelease
+    BUILD_VARIANT: DevRelease
     GRADLE_TASK: ":android:assembleDevRelease"
-    ARTIFACT_DIRECTORY: android/build/outputs/apk/dev/release
+    ARTIFACT_DIRECTORY: "android/build/outputs/apk/dev/release"
+    FASTLANE_LANE: "android_dev_release"
 
 ###########################################################################
 # PROD DEBUG
@@ -37,9 +39,10 @@ build_android_prod_debug:
     - .master_branch_manual
 
   variables:
-    BUILD_VARIANT: prodDebug
+    BUILD_VARIANT: ProdDebug
     GRADLE_TASK: ":android:assembleProdDebug"
-    ARTIFACT_DIRECTORY: android/build/outputs/apk/prod/debug
+    ARTIFACT_DIRECTORY: "android/build/outputs/apk/prod/debug"
+    FASTLANE_LANE: "android_prod_debug"
 
 ###########################################################################
 # PROD RELEASE
@@ -51,6 +54,7 @@ build_android_prod_release:
     - .master_branch_manual
 
   variables:
-    BUILD_VARIANT: prodRelease
-    GRADLE_TASK: ":android:assembleProdRelease"
-    ARTIFACT_DIRECTORY: android/build/outputs/apk/prod/release
+    BUILD_VARIANT: ProdRelease
+    GRADLE_TASK: ":android:bundleProdRelease"
+    ARTIFACT_DIRECTORY: "android/build/outputs/bundle/prodRelease"
+    FASTLANE_LANE: "android_prod_release"

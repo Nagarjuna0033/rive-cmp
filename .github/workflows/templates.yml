@@ -32,14 +32,22 @@
     - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
 
     # google-services.json
-
     - |
       echo "$GCP_SERVICE_JSON_ANDROID" | base64 --decode > android/google-services.json
 
-    # Release Keystore
+    # Release keystore
+    - mkdir -p signingConfig
 
     - |
-      echo "$KEYSTORE_BASE64" | base64 --decode > android/release.keystore
+      echo "$KEYSTORE_BASE64" | base64 --decode > signingConfig/file.jks
+
+    # keystore.properties
+    - |
+      cat > keystore.properties <<EOF
+      storePassword=$KEYSTORE_PASSWORD
+      keyAlias=$KEY_ALIAS
+      keyPassword=$KEY_PASSWORD
+      EOF
 
 ###########################################################################
 # IOS SETUP
@@ -116,43 +124,44 @@
   extends:
     - .android_setup
 
-  stage: build
+  stage: deploy
 
   tags:
     - macos
 
   script:
-
-    - echo "Building $BUILD_VARIANT"
-
-    - chmod +x gradlew
-
-    - ./gradlew $GRADLE_TASK
-
     - |
-      ARTIFACT=$(find "$ARTIFACT_DIRECTORY" \
-        \( -name "*.apk" -o -name "*.aab" \) \
-        | head -1)
+      echo "======================================"
+      echo "Building $BUILD_VARIANT"
+      echo "======================================"
+
+      chmod +x gradlew
+
+      ./gradlew "$GRADLE_TASK" --no-daemon --warning-mode none
+
+      ARTIFACT=$(find "$ARTIFACT_DIRECTORY" -type f \( -name "*.apk" -o -name "*.aab" \) | head -1)
 
       if [ -z "$ARTIFACT" ]; then
         echo "Artifact not found!"
         exit 1
       fi
 
-      echo "Artifact: $ARTIFACT"
+      export ARTIFACT_PATH="$ARTIFACT"
 
-      echo "BUILD_VARIANT=$BUILD_VARIANT" >> build.env
-      echo "ARTIFACT_PATH=$ARTIFACT" >> build.env
-
-  artifacts:
-
-    expire_in: 7 days
-
-    paths:
-      - android/build/outputs/
-
-    reports:
-      dotenv: build.env
+      echo "FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID"
+      echo "ARTIFACT_PATH=$ARTIFACT_PATH"
+      ls -lh "$ARTIFACT_PATH"
+      
+      echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > firebase.json
+  
+      echo "===== CLIENT EMAIL ====="
+      cat firebase.json | grep client_email
+      
+      echo "===== PROJECT ====="
+      cat firebase.json | grep project_id
+  
+      bundle exec fastlane "$FASTLANE_LANE"
+        
 
 ###########################################################################
 # IOS BUILD TEMPLATE
@@ -163,7 +172,7 @@
   extends:
     - .ios_setup
 
-  stage: build
+  stage: deploy
 
   tags:
     - macos
