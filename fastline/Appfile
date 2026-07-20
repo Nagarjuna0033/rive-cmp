@@ -1,0 +1,3 @@
+app_identifier "com.arjun.apps"
+
+team_id ENV["IOS_TEAM_ID"]

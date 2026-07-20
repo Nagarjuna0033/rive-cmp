@@ -1,0 +1,29 @@
+default:
+  interruptible: true
+
+variables:
+  LANG: "en_US.UTF-8"
+  LC_ALL: "en_US.UTF-8"
+
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  BUNDLE_PATH: "vendor/bundle"
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+
+  paths:
+    - .gradle/
+    - vendor/bundle/
+    - .bundle/
+
+#.master_branch_manual:
+#  rules:
+#    - if: '$CI_COMMIT_BRANCH =~ /^master(\/.*)?$/'
+#      when: manual
+#    - when: never
+
+.master_branch_manual:
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^(master(\/.*)?|feat\/.*)$/'
+      when: manual
+    - when: never
