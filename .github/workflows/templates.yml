@@ -35,19 +35,42 @@
     - |
       echo "$GCP_SERVICE_JSON_ANDROID" | base64 --decode > android/google-services.json
 
-    # Release keystore
-    - mkdir -p signingConfig
-
+    # Copy JKS to the location expected by Gradle
     - |
-      echo "$KEYSTORE_BASE64" | base64 --decode > signingConfig/file.jks
+      echo "Preparing signing keystore..."
 
-    # keystore.properties
+      mkdir -p "$CI_PROJECT_DIR/signingConfig"
+
+      cp /Users/arjun/signing.jks \
+        "$CI_PROJECT_DIR/signingConfig/signing.jks"
+
+      ls -lh "$CI_PROJECT_DIR/signingConfig/signing.jks"
+      file "$CI_PROJECT_DIR/signingConfig/signing.jks"
+
+    # Create keystore.properties
     - |
-      cat > keystore.properties <<EOF
+      echo "Creating keystore.properties..."
+
+      cat > "$CI_PROJECT_DIR/keystore.properties" <<EOF
       storePassword=$KEYSTORE_PASSWORD
-      keyAlias=$KEY_ALIAS
       keyPassword=$KEY_PASSWORD
+      keyAlias=$KEY_ALIAS
+      storeFile=$CI_PROJECT_DIR/signingConfig/signing.jks
       EOF
+
+      echo "keystore.properties:"
+      cat "$CI_PROJECT_DIR/keystore.properties"
+
+    # Verify keystore
+    - |
+      echo "Verifying keystore..."
+
+      keytool -list \
+        -v \
+        -keystore "$CI_PROJECT_DIR/signingConfig/signing.jks" \
+        -storepass "$KEYSTORE_PASSWORD"
+
+      echo "Keystore verification successful."
 
 ###########################################################################
 # IOS SETUP
@@ -89,27 +112,50 @@
       | base64 --decode \
       > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
-    # Keychain
+    - |
+      echo "Preparing Android signing files for KMP Gradle configuration..."
 
+      mkdir -p "$CI_PROJECT_DIR/signingConfig"
+
+      cp /Users/arjun/signing.jks \
+        "$CI_PROJECT_DIR/signingConfig/signing.jks"
+
+      cat > "$CI_PROJECT_DIR/keystore.properties" <<EOF
+      storePassword=$KEYSTORE_PASSWORD
+      keyPassword=$KEY_PASSWORD
+      keyAlias=$KEY_ALIAS
+      storeFile=$CI_PROJECT_DIR/signingConfig/signing.jks
+      EOF
+      
+      # Keychain
+    - |
+      # Shell executor reuses the host, so a keychain from a previous job may
+      # still exist. Remove it first to keep create-keychain idempotent.
+      security delete-keychain build.keychain || true
+
+    # Keychain
     - |
       security create-keychain \
         -p "$KEYCHAIN_PASSWORD" \
         build.keychain
-
-      security default-keychain \
-        -s build.keychain
-
+  
       security unlock-keychain \
         -p "$KEYCHAIN_PASSWORD" \
         build.keychain
-
+  
+      security list-keychains -d user -s \
+        build.keychain \
+        login.keychain-db
+  
+      security set-keychain-settings -lut 21600 build.keychain
+  
       security import certificate.p12 \
         -k build.keychain \
         -P "$IOS_CERTIFICATE_PASSWORD" \
         -T /usr/bin/codesign
-
+  
       security set-key-partition-list \
-        -S apple-tool:,apple:,codesign: \
+        -S apple-tool:,apple:,codesign:,security: \
         -s \
         -k "$KEYCHAIN_PASSWORD" \
         build.keychain
@@ -118,7 +164,6 @@
 ###########################################################################
 # ANDROID BUILD TEMPLATE
 ###########################################################################
-
 .android_build:
 
   extends:
@@ -137,7 +182,9 @@
 
       chmod +x gradlew
 
-      ./gradlew "$GRADLE_TASK" --no-daemon --warning-mode none
+      ./gradlew \
+      $GRADLE_TASK \
+      --no-daemon
 
       ARTIFACT=$(find "$ARTIFACT_DIRECTORY" -type f \( -name "*.apk" -o -name "*.aab" \) | head -1)
 
@@ -148,20 +195,21 @@
 
       export ARTIFACT_PATH="$ARTIFACT"
 
-      echo "FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID"
       echo "ARTIFACT_PATH=$ARTIFACT_PATH"
       ls -lh "$ARTIFACT_PATH"
-      
+
+      if [ "$BUILD_VARIANT" = "ProdRelease" ]; then
+        export APK_PATH=$(find android/build/outputs/apk/prod/release -name "*.apk" | head -1)
+        export AAB_PATH=$(find android/build/outputs/bundle/prodRelease -name "*.aab" | head -1)
+
+        echo "APK_PATH=$APK_PATH"
+        echo "AAB_PATH=$AAB_PATH"
+      fi
+
       echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > firebase.json
-  
-      echo "===== CLIENT EMAIL ====="
-      cat firebase.json | grep client_email
-      
-      echo "===== PROJECT ====="
-      cat firebase.json | grep project_id
-  
+      export GOOGLE_APPLICATION_CREDENTIALS="$PWD/firebase.json"
+
       bundle exec fastlane "$FASTLANE_LANE"
-        
 
 ###########################################################################
 # IOS BUILD TEMPLATE
@@ -178,16 +226,48 @@
     - macos
 
   script:
+    - |
+      echo "======================================"
+      echo "Building iOS $BUILD_VARIANT"
+      echo "======================================"
 
-    - echo "Building iOS $BUILD_VARIANT"
+      echo "Current directory:"
+      pwd
 
-    - bundle exec fastlane "$FASTLANE_LANE"
+      echo "Repository root:"
+      ls -la
+
+      echo "ios contents:"
+      ls -la ios
+
+      echo "Installing CocoaPods..."
+
+      cd ios
+      pod install
+      cd ..
+
+      echo "Looking for workspaces..."
+      find . -name "*.xcworkspace"
+
+      echo "Looking for projects..."
+      find . -name "*.xcodeproj"
+
+      echo "Looking for Podfile..."
+      find . -name "Podfile"
+
+      echo "FASTLANE_LANE='$FASTLANE_LANE'"
+
+      set -x
+
+      bundle exec fastlane ios "$FASTLANE_LANE" --verbose || {
+        echo ""
+        echo "========== XCODE BUILD LOG =========="
+        find ~/Library/Logs/gym -name "*.log" -exec cat {} \;
+        exit 1
+      }
 
   artifacts:
-
     expire_in: 7 days
 
     paths:
       - ios/build/
-
-
