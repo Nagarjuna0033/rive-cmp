@@ -7,7 +7,6 @@ default_platform(:android)
 platform :android do
 
   desc "Deploy Dev Debug"
-
   lane :android_dev_debug do
 
     firebase_app_distribution(
@@ -19,7 +18,6 @@ platform :android do
   end
 
   desc "Deploy Dev Release"
-
   lane :android_dev_release do
 
     firebase_app_distribution(
@@ -31,7 +29,6 @@ platform :android do
   end
 
   desc "Deploy Prod Debug"
-
   lane :android_prod_debug do
 
     firebase_app_distribution(
@@ -43,21 +40,19 @@ platform :android do
   end
 
   desc "Deploy Prod Release"
-
-
   lane :android_prod_release do
 
-  firebase_app_distribution(
-    app: ENV["FIREBASE_ANDROID_APP_ID"],
-    android_artifact_path: ENV["ARTIFACT_PATH"],
-    groups: "qa"
-  )
+    firebase_app_distribution(
+      app: ENV["FIREBASE_ANDROID_APP_ID"],
+      android_artifact_path: ENV["APK_PATH"],
+      groups: "qa"
+    )
 
-  upload_to_play_store(
-    aab: ENV["ARTIFACT_PATH"],
-    track: "internal",
-    json_key_data: ENV["PLAY_STORE_JSON_KEY"]
-  )
+    upload_to_play_store(
+      aab: ENV["AAB_PATH"],
+      track: "internal",
+      json_key_data: ENV["PLAY_STORE_JSON_KEY"]
+    )
 
   end
 
@@ -67,25 +62,60 @@ end
 # IOS
 ###############################################################
 
-platform :ios do
+def provisioning_profile_info
+  require "plist"
 
-  api_key = app_store_connect_api_key(
-    key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
-    issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
-    key_filepath: "./AuthKey.p8"
-  )
+  path = File.expand_path("~/Library/MobileDevice/Provisioning Profiles/profile.mobileprovision")
+  xml  = `security cms -D -i "#{path}"`
+  data = Plist.parse_xml(xml)
+
+  team      = data["TeamIdentifier"].first
+  app_id    = data["Entitlements"]["application-identifier"]
+  bundle_id = app_id.sub("#{team}.", "")
+
+  { name: data["Name"], team: team, bundle_id: bundle_id }
+end
+
+def firebase_ios_app_id
+  require "plist"
+
+  data = Plist.parse_xml("ios/GoogleService-Info.plist")
+  data["GOOGLE_APP_ID"]
+end
+
+platform :ios do
 
   desc "Development"
   lane :ios_dev do
 
+    profile = provisioning_profile_info
+    UI.message("Signing with profile '#{profile[:name]}' (team #{profile[:team]}, bundle #{profile[:bundle_id]})")
+
     build_ios_app(
-      workspace: "ios.xcworkspace",
-      scheme: "dev",
-      export_method: "development"
+      workspace: "ios/iosApp.xcworkspace",
+      scheme: "iosApp-Dev",
+      configuration: "Dev Debug",
+      export_method: "development",
+      output_directory: "ios/build",
+      output_name: "Dev",
+      xcodebuild_formatter: "",
+      build_timing_summary: true,
+      xcargs: "CODE_SIGN_STYLE=Manual " \
+              "DEVELOPMENT_TEAM='#{profile[:team]}' " \
+              "CODE_SIGN_IDENTITY='Apple Development' " \
+              "PROVISIONING_PROFILE_SPECIFIER='#{profile[:name]}'",
+      export_options: {
+        signingStyle: "manual",
+        teamID: profile[:team],
+        provisioningProfiles: {
+          profile[:bundle_id] => profile[:name]
+        }
+      }
     )
 
     firebase_app_distribution(
-      app: ENV["FIREBASE_IOS_APP_ID"],
+      app: firebase_ios_app_id,
+      ipa_path: "ios/build/Dev.ipa",
       groups: "Dev-Qa"
     )
 
@@ -94,9 +124,15 @@ platform :ios do
   desc "Release"
   lane :ios_release do
 
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+      key_filepath: "./AuthKey.p8"
+    )
+
     build_ios_app(
-      workspace: "ios.xcworkspace",
-      scheme: "release",
+      workspace: "ios/iosApp.xcworkspace",
+      scheme: "iosApp-Prod",
       export_method: "app-store"
     )
 
