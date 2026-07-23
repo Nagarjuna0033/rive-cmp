@@ -113,6 +113,15 @@
       > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
     - |
+      PROFILE=~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      echo "Profile Name:"
+      security cms -D -i "$PROFILE" | plutil -extract Name raw -
+
+      echo "Profile application-identifier:"
+      security cms -D -i "$PROFILE" | plutil -extract Entitlements.application-identifier raw -
+
+    - |
       echo "Preparing Android signing files for KMP Gradle configuration..."
 
       mkdir -p "$CI_PROJECT_DIR/signingConfig"
@@ -160,6 +169,28 @@
         -k "$KEYCHAIN_PASSWORD" \
         build.keychain
 
+    # Apple WWDR intermediate — the signing chain won't validate without it,
+    # which makes every identity show as "0 valid identities found".
+    - |
+      curl -fsSL -o AppleWWDRCAG3.cer \
+        https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+      security import AppleWWDRCAG3.cer -k build.keychain || true
+
+    # Fail fast if there is no usable signing identity (e.g. expired cert),
+    # instead of running a ~45 min archive that dies at the codesign step.
+    - |
+      echo "Code-signing identities in build.keychain:"
+      security find-identity -v -p codesigning build.keychain
+
+      if security find-identity -v -p codesigning build.keychain \
+           | grep -qE "^[[:space:]]*0 valid identities found"; then
+        echo "error: no valid code-signing identity found."
+        echo "The Apple Development certificate is likely expired or invalid."
+        echo "Renew it and update IOS_CERTIFICATE_BASE64 / IOS_CERTIFICATE_PASSWORD"
+        echo "and IOS_DEV_PROVISIONING_PROFILE_BASE64 in GitLab CI/CD variables."
+        exit 1
+      fi
+
 
 ###########################################################################
 # ANDROID BUILD TEMPLATE
@@ -170,6 +201,8 @@
     - .android_setup
 
   stage: deploy
+
+  interruptible: false
 
   tags:
     - macos
@@ -222,6 +255,10 @@
 
   stage: deploy
 
+  interruptible: false
+
+  timeout: 2h
+
   tags:
     - macos
 
@@ -257,9 +294,12 @@
 
       echo "FASTLANE_LANE='$FASTLANE_LANE'"
 
+      echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > firebase.json
+      export GOOGLE_APPLICATION_CREDENTIALS="$PWD/firebase.json"
+
       set -x
 
-      bundle exec fastlane ios "$FASTLANE_LANE" --verbose || {
+      bundle exec fastlane ios "$FASTLANE_LANE" --verbose < /dev/null || {
         echo ""
         echo "========== XCODE BUILD LOG =========="
         find ~/Library/Logs/gym -name "*.log" -exec cat {} \;
