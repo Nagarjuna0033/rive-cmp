@@ -180,33 +180,33 @@ platform :ios do
 
   end
 
-  desc "Release"
-  lane :ios_release do
-
-    api_key = app_store_connect_api_key(
-      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
-      issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
-      key_filepath: "./AuthKey.p8"
-    )
-
-    build_ios_app(
-      workspace: "ios/iosApp.xcworkspace",
-      scheme: "iosApp-Prod",
-      export_method: "app-store"
-    )
-
-    upload_to_testflight(
-      api_key: api_key
-    )
-
-    notify_slack(
-      "🎉 iOS Release uploaded to TestFlight",
-      {
-        "Scheme" => "iosApp-Prod",
-        "Destination" => "TestFlight"
-      }
-    )
-
-  end
+#   desc "Release"
+#   lane :ios_release do
+#
+#     api_key = app_store_connect_api_key(
+#       key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+#       issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+#       key_filepath: "./AuthKey.p8"
+#     )
+#
+#     build_ios_app(
+#       workspace: "ios/iosApp.xcworkspace",
+#       scheme: "iosApp-Prod",
+#       export_method: "app-store"
+#     )
+#
+#     upload_to_testflight(
+#       api_key: api_key
+#     )
+#
+#     notify_slack(
+#       "🎉 iOS Release uploaded to TestFlight",
+#       {
+#         "Scheme" => "iosApp-Prod",
+#         "Destination" => "TestFlight"
+#       }
+#     )
+#
+#   end
 
 end
