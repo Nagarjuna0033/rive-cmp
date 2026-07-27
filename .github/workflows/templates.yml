@@ -241,6 +241,9 @@
 
       echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > firebase.json
       export GOOGLE_APPLICATION_CREDENTIALS="$PWD/firebase.json"
+      
+      echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > play-store-key.json
+      export PLAY_STORE_JSON_PATH="$PWD/play-store-key.json"
 
       bundle exec fastlane "$FASTLANE_LANE"
 
