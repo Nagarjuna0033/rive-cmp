@@ -1,6 +1,23 @@
 default_platform(:android)
 
 ###############################################################
+# SLACK
+###############################################################
+
+def notify_slack(message, payload = {})
+  slack(
+    slack_url: ENV["SLACK_WEBHOOK_URL"],
+    success: true,
+    message: message,
+    payload: payload.merge(
+      "Branch" => ENV["CI_COMMIT_REF_NAME"],
+      "Commit" => ENV["CI_COMMIT_SHORT_SHA"],
+      "Triggered By" => ENV["GITLAB_USER_NAME"]
+    )
+  )
+end
+
+###############################################################
 # ANDROID
 ###############################################################
 
@@ -12,7 +29,15 @@ platform :android do
     firebase_app_distribution(
       app: ENV["FIREBASE_ANDROID_APP_ID"],
       android_artifact_path: ENV["ARTIFACT_PATH"],
-      groups: "Dev-Qa"
+      groups: ENV["FIREBASE_GROUPS"]
+    )
+
+    notify_slack(
+      "🚀 Android Dev Debug distributed to Firebase",
+      {
+        "Variant" => "DevDebug",
+        "Firebase Group" => ENV["FIREBASE_GROUPS"]
+      }
     )
 
   end
@@ -23,7 +48,15 @@ platform :android do
     firebase_app_distribution(
       app: ENV["FIREBASE_ANDROID_APP_ID"],
       android_artifact_path: ENV["ARTIFACT_PATH"],
-      groups: "Dev-Qa"
+      groups: ENV["FIREBASE_GROUPS"]
+    )
+
+    notify_slack(
+      "🚀 Android Dev Release distributed to Firebase",
+      {
+        "Variant" => "DevRelease",
+        "Firebase Group" => ENV["FIREBASE_GROUPS"]
+      }
     )
 
   end
@@ -34,7 +67,15 @@ platform :android do
     firebase_app_distribution(
       app: ENV["FIREBASE_ANDROID_APP_ID"],
       android_artifact_path: ENV["ARTIFACT_PATH"],
-      groups: "Dev-Qa"
+      groups: ENV["FIREBASE_GROUPS"]
+    )
+
+    notify_slack(
+      "🚀 Android Prod Debug distributed to Firebase",
+      {
+        "Variant" => "ProdDebug",
+        "Firebase Group" => ENV["FIREBASE_GROUPS"]
+      }
     )
 
   end
@@ -45,13 +86,23 @@ platform :android do
     firebase_app_distribution(
       app: ENV["FIREBASE_ANDROID_APP_ID"],
       android_artifact_path: ENV["APK_PATH"],
-      groups: "qa"
+      groups: ENV["FIREBASE_GROUPS"]
     )
 
     upload_to_play_store(
+      package_name: "com.arjun.app",
       aab: ENV["AAB_PATH"],
       track: "internal",
-      json_key_data: ENV["PLAY_STORE_JSON_KEY"]
+      json_key: ENV["PLAY_STORE_JSON_PATH"]
+    )
+
+    notify_slack(
+      "🎉 Android Prod Release uploaded to Firebase & Google Play Internal Testing",
+      {
+        "Variant" => "ProdRelease",
+        "Firebase Group" => ENV["FIREBASE_GROUPS"],
+        "Play Track" => "Internal"
+      }
     )
 
   end
@@ -119,6 +170,14 @@ platform :ios do
       groups: "Dev-Qa"
     )
 
+    notify_slack(
+      "🚀 iOS Dev distributed to Firebase",
+      {
+        "Scheme" => "iosApp-Dev",
+        "Firebase Group" => ENV["FIREBASE_GROUPS"],
+      }
+    )
+
   end
 
   desc "Release"
@@ -138,6 +197,14 @@ platform :ios do
 
     upload_to_testflight(
       api_key: api_key
+    )
+
+    notify_slack(
+      "🎉 iOS Release uploaded to TestFlight",
+      {
+        "Scheme" => "iosApp-Prod",
+        "Destination" => "TestFlight"
+      }
     )
 
   end
