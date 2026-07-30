@@ -113,6 +113,16 @@ end
 # IOS
 ###############################################################
 
+# Lanes run with the working directory set to the `fastlane/` folder, not the
+# repo root, so every project-relative path has to be anchored explicitly.
+def repo_root
+  ENV["CI_PROJECT_DIR"] || File.expand_path("..", Dir.pwd)
+end
+
+def project_path(relative)
+  File.join(repo_root, relative)
+end
+
 def provisioning_profile_info
   require "plist"
 
@@ -130,7 +140,11 @@ end
 def firebase_ios_app_id
   require "plist"
 
-  data = Plist.parse_xml("ios/GoogleService-Info.plist")
+  path = project_path("ios/GoogleService-Info.plist")
+  data = Plist.parse_xml(path)
+
+  UI.user_error!("Could not read GoogleService-Info.plist at #{path}") if data.nil?
+
   data["GOOGLE_APP_ID"]
 end
 
@@ -139,22 +153,30 @@ platform :ios do
   desc "Development"
   lane :ios_dev do
 
+    UI.header("Starting iOS Dev Lane")
+
     profile = provisioning_profile_info
-    UI.message("Signing with profile '#{profile[:name]}' (team #{profile[:team]}, bundle #{profile[:bundle_id]})")
+    app_id = firebase_ios_app_id
+
+    UI.message("Provisioning profile loaded")
+    UI.message("Profile Name : #{profile[:name]}")
+    UI.message("Bundle ID : #{profile[:bundle_id]}")
+    UI.message("Team ID : #{profile[:team]}")
+
+    UI.user_error!("Firebase App ID is empty") if app_id.to_s.empty?
+    UI.user_error!("FIREBASE_GROUPS is not set") if ENV["FIREBASE_GROUPS"].to_s.empty?
+
+    UI.header("Building IPA")
+
+    build_dir = project_path("ios/build")
 
     build_ios_app(
-      workspace: "ios/iosApp.xcworkspace",
+      workspace: project_path("ios/iosApp.xcworkspace"),
       scheme: "iosApp-Dev",
       configuration: "Dev Debug",
       export_method: "development",
-      output_directory: "ios/build",
-      output_name: "Dev",
-      xcodebuild_formatter: "",
-      build_timing_summary: true,
-      xcargs: "CODE_SIGN_STYLE=Manual " \
-              "DEVELOPMENT_TEAM='#{profile[:team]}' " \
-              "CODE_SIGN_IDENTITY='Apple Development' " \
-              "PROVISIONING_PROFILE_SPECIFIER='#{profile[:name]}'",
+      output_directory: build_dir,
+      output_name: "Ios-Dev",
       export_options: {
         signingStyle: "manual",
         teamID: profile[:team],
@@ -164,49 +186,97 @@ platform :ios do
       }
     )
 
+    UI.success("build_ios_app completed successfully")
+
+    ipa_path = File.join(build_dir, "Ios-Dev.ipa")
+
+    UI.header("Checking generated artifacts")
+
+    UI.message("Repo root : #{repo_root}")
+    UI.message("Build directory : #{build_dir}")
+    UI.message("Expected IPA : #{ipa_path}")
+
+    unless File.exist?(ipa_path)
+      UI.user_error!("IPA not found at #{ipa_path}")
+    end
+
+    sh("ls -lah #{build_dir}")
+
+    UI.success("IPA found")
+
+    UI.header("Uploading to Firebase App Distribution")
+
+    UI.message("Firebase App ID : #{app_id}")
+    UI.message("Firebase Groups : #{ENV['FIREBASE_GROUPS']}")
+    UI.message("IPA Path : #{ipa_path}")
+
     firebase_app_distribution(
-      app: firebase_ios_app_id,
-      ipa_path: "ios/build/Dev.ipa",
-      groups: "Dev-Qa"
+      app: app_id,
+      ipa_path: ipa_path,
+      groups: ENV["FIREBASE_GROUPS"]
+    )
+
+    UI.success("Firebase upload completed")
+
+    UI.header("Sending Slack notification")
+
+    notify_slack(
+      "iOS Dev distributed to Firebase",
+      {
+        "Scheme" => "iosApp-Dev",
+        "Firebase Group" => ENV["FIREBASE_GROUPS"]
+      }
+    )
+
+    UI.success("Slack notification sent")
+    UI.success("iOS Dev lane completed successfully")
+
+  end
+
+  desc "Release"
+  lane :ios_release do
+
+    UI.message("APP_STORE_CONNECT_API_KEY_ID present? #{!ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.empty?}")
+    UI.message("APP_STORE_CONNECT_API_ISSUER_ID present? #{!ENV["APP_STORE_CONNECT_API_ISSUER_ID"].to_s.empty?}")
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+      key_filepath: project_path("AuthKey.p8")
+    )
+
+    profile = provisioning_profile_info
+
+    build_dir = project_path("ios/build")
+
+    build_ios_app(
+      workspace: project_path("ios/iosApp.xcworkspace"),
+      scheme: "iosApp-Prod",
+      configuration: "Prod Release",
+      export_method: "app-store",
+      output_directory: build_dir,
+      output_name: "ios-Release",
+      export_options: {
+        signingStyle: "manual",
+        teamID: profile[:team],
+        provisioningProfiles: {
+          profile[:bundle_id] => profile[:name]
+        }
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key
     )
 
     notify_slack(
-      "🚀 iOS Dev distributed to Firebase",
+      "🎉 iOS Release uploaded to TestFlight",
       {
-        "Scheme" => "iosApp-Dev",
-        "Firebase Group" => ENV["FIREBASE_GROUPS"],
+        "Scheme" => "iosApp-Prod",
+        "Destination" => "TestFlight"
       }
     )
 
   end
-
-#   desc "Release"
-#   lane :ios_release do
-#
-#     api_key = app_store_connect_api_key(
-#       key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
-#       issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
-#       key_filepath: "./AuthKey.p8"
-#     )
-#
-#     build_ios_app(
-#       workspace: "ios/iosApp.xcworkspace",
-#       scheme: "iosApp-Prod",
-#       export_method: "app-store"
-#     )
-#
-#     upload_to_testflight(
-#       api_key: api_key
-#     )
-#
-#     notify_slack(
-#       "🎉 iOS Release uploaded to TestFlight",
-#       {
-#         "Scheme" => "iosApp-Prod",
-#         "Destination" => "TestFlight"
-#       }
-#     )
-#
-#   end
 
 end
