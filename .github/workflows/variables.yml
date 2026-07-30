@@ -17,14 +17,8 @@ cache:
     - vendor/bundle/
     - .bundle/
 
-#.master_branch_manual:
-#  rules:
-#    - if: '$CI_COMMIT_BRANCH =~ /^master(\/.*)?$/'
-#      when: manual
-#    - when: never
-
 .master_branch_manual:
   rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^(master(\/.*)?|feat\/.*)$/'
+    - if: '$CI_COMMIT_BRANCH =~ /^master(\/.*)?$/'
       when: manual
     - when: never

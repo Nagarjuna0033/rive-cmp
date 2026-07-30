@@ -126,14 +126,14 @@
 
       mkdir -p "$CI_PROJECT_DIR/signingConfig"
 
-      cp /Users/arjun/signing.jks \
-        "$CI_PROJECT_DIR/signingConfig/signing.jks"
+      cp /Users/manojbojja/sign.jks \
+        "$CI_PROJECT_DIR/signingConfig/sign.jks"
 
       cat > "$CI_PROJECT_DIR/keystore.properties" <<EOF
       storePassword=$KEYSTORE_PASSWORD
       keyPassword=$KEY_PASSWORD
       keyAlias=$KEY_ALIAS
-      storeFile=$CI_PROJECT_DIR/signingConfig/signing.jks
+      storeFile=$CI_PROJECT_DIR/signingConfig/sign.jks
       EOF
       
       # Keychain
@@ -147,22 +147,22 @@
       security create-keychain \
         -p "$KEYCHAIN_PASSWORD" \
         build.keychain
-  
+      
       security unlock-keychain \
         -p "$KEYCHAIN_PASSWORD" \
         build.keychain
-  
+      
       security list-keychains -d user -s \
         build.keychain \
         login.keychain-db
-  
+      
       security set-keychain-settings -lut 21600 build.keychain
-  
+      
       security import certificate.p12 \
         -k build.keychain \
         -P "$IOS_CERTIFICATE_PASSWORD" \
         -T /usr/bin/codesign
-  
+      
       security set-key-partition-list \
         -S apple-tool:,apple:,codesign:,security: \
         -s \
@@ -239,7 +239,7 @@
         echo "AAB_PATH=$AAB_PATH"
       fi
 
-      echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > firebase.json
+      echo "$FIREBASE_DISTRIBUTION_KEY" | base64 --decode > firebase.json
       export GOOGLE_APPLICATION_CREDENTIALS="$PWD/firebase.json"
       
       echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > play-store-key.json
@@ -297,20 +297,35 @@
 
       echo "FASTLANE_LANE='$FASTLANE_LANE'"
 
-      echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 --decode > firebase.json
+      echo "$FIREBASE_DISTRIBUTION_KEY" | base64 --decode > firebase.json
       export GOOGLE_APPLICATION_CREDENTIALS="$PWD/firebase.json"
 
-      set -x
-
-      bundle exec fastlane ios "$FASTLANE_LANE" --verbose < /dev/null || {
-        echo ""
-        echo "========== XCODE BUILD LOG =========="
-        find ~/Library/Logs/gym -name "*.log" -exec cat {} \;
-        exit 1
-      }
+      # Shell executor reuses the host, so a gym log from a previous job would be
+      # dumped below and read as this job's output. Start from a clean slate.
+      rm -rf ~/Library/Logs/gym
+      
+      set +e
+      
+      bundle exec fastlane ios "$FASTLANE_LANE" --verbose < /dev/null
+      
+      STATUS=$?
+      
+      echo "Fastlane finished with status $STATUS"
+      
+      echo "========== Gym Logs =========="
+      ls -lah ~/Library/Logs/gym || true
+      find ~/Library/Logs/gym -name "*.log" -exec cat {} \; || true
+      
+      echo "========== Build Directory =========="
+      ls -R ios/build || true
+      
+      exit $STATUS
 
   artifacts:
     expire_in: 7 days
 
+    # Only the IPA. Uploading the whole build directory (dSYM zip + export
+    # metadata alongside it) pushed the archive past the coordinator's limit
+    # and the job failed with 413 after a successful build.
     paths:
-      - ios/build/
+      - ios/build/*.ipa
